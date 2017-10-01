@@ -2,14 +2,15 @@ package adver.sarius.phwar;
 
 import java.io.IOException;
 
-import javax.swing.RootPaneContainer;
-
 import adver.sarius.phwar.model.PhwarBoard;
 import adver.sarius.phwar.view.PhwarBoardView;
 import adver.sarius.phwar.view.StatusView;
 import javafx.application.Application;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
@@ -37,7 +38,7 @@ public class PhwarMain extends Application {
 		primaryStage.setScene(scene);
 		primaryStage.show();
 
-		int hexaSize = 40;
+		double hexaSize = 40;
 		
 		PhwarBoard board = new PhwarBoard();
 		board.resetDefaultBoard();
@@ -50,8 +51,16 @@ public class PhwarMain extends Application {
 		controller.initGetHexagonFunc(view::getHexagon);
 		layout.setCenter(view);
 		
-		// TODO: Sizes
-		primaryStage.setWidth(view.getPrefWidth());
+		Label feedback = new Label(controller.getFeedbackProperty().get());
+		controller.getFeedbackProperty().addListener(new ChangeListener<String>() {
+			@Override
+			public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
+				feedback.setText(newValue);
+			}
+		});
+		layout.setBottom(feedback);
+		
+		primaryStage.sizeToScene();
 	}
 	
 	@Override

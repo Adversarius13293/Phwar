@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import java.lang.Double?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.shape.Circle?>
 <?import javafx.scene.shape.Polygon?>
 
 <GridPane alignment="CENTER" gridLinesVisible="true" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1">
    <columnConstraints>
+      <ColumnConstraints />
       <ColumnConstraints />
       <ColumnConstraints />
       <ColumnConstraints halignment="LEFT" />
@@ -21,7 +25,7 @@
       <RowConstraints maxHeight="0.0" minHeight="0.0" prefHeight="0.0" />
    </rowConstraints>
    <children>
-      <Polygon fill="DODGERBLUE" stroke="BLACK" strokeType="INSIDE" GridPane.columnIndex="2">
+      <Polygon fill="DODGERBLUE" stroke="BLACK" strokeType="INSIDE" GridPane.columnIndex="3">
         <points>
           <Double fx:value="-50.0" />
           <Double fx:value="40.0" />
@@ -31,6 +35,14 @@
           <Double fx:value="-60.0" />
         </points>
       </Polygon>
-      <Circle fill="DODGERBLUE" radius="48.0" stroke="BLACK" strokeType="INSIDE" GridPane.columnIndex="2" />
+      <Circle fill="DODGERBLUE" radius="48.0" stroke="BLACK" strokeType="INSIDE" GridPane.columnIndex="3" />
+      <StackPane prefHeight="150.0" prefWidth="200.0">
+         <children>
+            <Label text="Label" StackPane.alignment="TOP_CENTER" />
+         </children>
+         <padding>
+            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+         </padding>
+      </StackPane>
    </children>
 </GridPane>

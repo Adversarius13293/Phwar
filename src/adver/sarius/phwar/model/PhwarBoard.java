@@ -5,8 +5,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import adver.sarius.phwar.view.ModelListener;
 
@@ -19,8 +23,9 @@ public class PhwarBoard {
 	private int size;
 
 	// TODO: LogHistory?!
-	private int numberOfPlayers;
-	private int currentPlayer;
+	private int numberOfPlayers; // TODO: needed?
+	private Queue<Integer> playerQueue;
+
 	private State state;
 
 	private Set<ModelListener> listener = new HashSet<>();
@@ -31,6 +36,9 @@ public class PhwarBoard {
 
 	// TODO: fields durch cells ersetzen
 	// TODO: particles nach draußen nur in lesend?
+
+	public PhwarBoard() {
+	}
 
 	public Map<Particle, Set<Particle>> move(int startX, int startY, int targetX, int targetY) {
 		if (state != State.STARTED) {
@@ -52,7 +60,7 @@ public class PhwarBoard {
 			throw new IllegalMoveException("There has to be a particle on the start position.");
 		}
 		Particle pStart = start.get();
-		if (pStart.getPlayer() != currentPlayer) {
+		if (pStart.getPlayer() != playerQueue.peek()) {
 			throw new IllegalMoveException("Only the current player is allowed to move.");
 		}
 		if (!isUnobstructedLine(startX, startY, targetX, targetY)) {
@@ -74,18 +82,18 @@ public class PhwarBoard {
 
 		capture.forEach(p -> {
 			toCapture.put(p, getParticlesInLineOfSight(p.getPosX(), p.getPosY()).stream()
-					.filter(p2 -> p2.getPlayer() == currentPlayer).collect(Collectors.toSet()));
+					.filter(p2 -> p2.getPlayer() == playerQueue.peek()).collect(Collectors.toSet()));
 		});
 
 		state = State.MOVED;
 		informListener();
 		return copyCaptureMap(toCapture);
 	}
-	
+
 	public int getCurrentPlayer() {
-		return this.currentPlayer;
+		return playerQueue.peek();
 	}
-	
+
 	public int getPlayerCount() {
 		return this.numberOfPlayers;
 	}
@@ -114,13 +122,13 @@ public class PhwarBoard {
 	private Set<Particle> getParticlesToCapture(Set<Particle> particles) {
 		Set<Particle> ret = new HashSet<>();
 
-		particles.stream().filter(p -> p.getPlayer() != this.currentPlayer).forEach(p -> {
+		particles.stream().filter(p -> p.getPlayer() != playerQueue.peek()).forEach(p -> {
 			int charge = 0;
 			int ownParticles = 0;
 
 			for (Particle p2 : getParticlesInLineOfSight(p.getPosX(), p.getPosY())) {
 				charge += p2.getCharge();
-				if (p2.getPlayer() == currentPlayer) {
+				if (p2.getPlayer() == playerQueue.peek()) {
 					ownParticles++;
 				}
 			}
@@ -200,7 +208,7 @@ public class PhwarBoard {
 	public boolean hasWon() {
 		return state == State.WON;
 	}
-	
+
 	public void capture(int ownX, int ownY, int oppX, int oppY) {
 		// TODO: test state?
 		Optional<Particle> opp = getParticle(oppX, oppY, toCapture.keySet());
@@ -213,10 +221,7 @@ public class PhwarBoard {
 				own.get().setPos(oppX, oppY);
 				state = State.CAPTURED;
 
-				// TODO: players >2
-				Set<Particle> opponentParticles = particles.stream().filter(p -> p.getPlayer() != currentPlayer)
-						.collect(Collectors.toSet());
-				if (checkParticleCount(opponentParticles)
+				if ((checkParticleCount(opp.get().getPlayer()) && playerQueue.size() == 1)
 						|| (own.get().getCharge() == 0 && own.get().getPosX() == 0 && own.get().getPosY() == 0)) {
 					state = State.WON;
 				}
@@ -230,19 +235,21 @@ public class PhwarBoard {
 	}
 
 	/**
-	 * Checks if the given set of particles contain at least 1 electron, positron
-	 * and neutron. If not, remove the particles from the game.
+	 * Checks if the given player owns at least 1 electron, positron, and neutron.
+	 * If not, remove the player and his particles from the game.
 	 * 
-	 * @param particlesOfPlayer
-	 *            particles to be checked. Should be all particles from one player.
-	 * @return true if removed the given particles, because the player lost.
+	 * @param playerToCheck
+	 *            player to be checked.
+	 * @return true if removed the given player and particles, because he lost.
 	 */
-	private boolean checkParticleCount(Set<Particle> particlesOfPlayer) {
+	private boolean checkParticleCount(int playerToCheck) {
 		Map<Integer, Integer> counts = new HashMap<>();
-		// opponentParticles.stream().collect(Collectors.toMap(
-		// p -> p.getCharge(), p -> 1, (count1, count2) -> count1 + count2));
-		particlesOfPlayer.forEach(p -> counts.merge(p.getCharge(), 1, (i1, i2) -> i1 + i2));
+		particles.stream().filter(p -> p.getPlayer() == playerToCheck)
+				.forEach(p -> counts.merge(p.getCharge(), 1, (i1, i2) -> i1 + i2));
 		if (counts.getOrDefault(0, 0) <= 0 || counts.getOrDefault(1, 0) <= 0 || counts.getOrDefault(-1, 0) <= 0) {
+			// TODO: do it more fancy
+			Set<Particle> particlesOfPlayer = particles.stream().filter(p -> p.getPlayer() != playerQueue.peek())
+					.collect(Collectors.toSet());
 			particles.removeAll(particlesOfPlayer);
 			return true;
 		}
@@ -265,9 +272,9 @@ public class PhwarBoard {
 
 		// TODO: Test if can skip
 
-		currentPlayer = (currentPlayer + 1) % numberOfPlayers;
+		playerQueue.add(playerQueue.poll());
 		informListener();
-		return currentPlayer;
+		return playerQueue.peek();
 	}
 
 	/**
@@ -332,7 +339,8 @@ public class PhwarBoard {
 	public void resetDefaultBoard() {
 		size = 5;
 		numberOfPlayers = 2;
-		currentPlayer = 0;
+		playerQueue = new ArrayBlockingQueue<>(numberOfPlayers);
+		IntStream.range(0, numberOfPlayers).forEach(i -> playerQueue.add(i));
 		state = State.STARTED;
 		particles = new HashSet<>(); // TODO: positions relative to size?
 		particles.add(new Particle(0, -1, 0, 3));
@@ -353,6 +361,31 @@ public class PhwarBoard {
 		particles.add(new Particle(1, 1, -1, -4));
 		particles.add(new Particle(1, 1, -1, -5));
 		particles.add(new Particle(1, -1, -2, -5));
+
+		// capture, and after that another capture possible?
+		// particles = new HashSet<>();
+		// particles.add(new Particle(0, 0, -1, 4));
+		// particles.add(new Particle(1, 0, -1, -4));
+		// particles.add(new Particle(1, 1, -3, -2));
+		// particles.add(new Particle(1, 1, -2, -1));
+		// particles.add(new Particle(1, -1, -2, 0));
+		// particles.add(new Particle(0, -1, 0, -2));
+		// particles.add(new Particle(0, -1, 1, -1));
+		// particles.add(new Particle(0, 1, 2, 2));
+
+		// take away all valid capturer?
+		// particles = new HashSet<>();
+		// particles.add(new Particle(0, 0, 2, 5));
+		// particles.add(new Particle(1, 0, -4, -5));
+		// particles.add(new Particle(1, -1, -5, -4));
+		// particles.add(new Particle(1, 1, -1, -1));
+		// particles.add(new Particle(1, 1, -1, -1));
+		// particles.add(new Particle(1, 1, 0, -2));
+		// particles.add(new Particle(1, 1, -2, 0));
+		// particles.add(new Particle(0, -1, 4, 0));
+		// particles.add(new Particle(0, 1, -1, -2));
+		// particles.add(new Particle(0, 1, -3, 0));
+
 	}
 	// KIs in Board oder Controller? Board kann kein UserInput, aber hat alle Daten
 	// --> nicht ins board...
@@ -386,7 +419,7 @@ enum State {
 
 // capture, and after that another capture possible?
 // opponent puts in bad position --> need to move first. But can I capture that
-// bad position, even if I changed nothing with my move? --> would so no.
+// bad position, even if I changed nothing with my move? --> would say no.
 // can i capture particles by moving my particle away, or only the ones i can
 // capture from target position
 // multiple captures, then all at once --> no chains? and what if you take away

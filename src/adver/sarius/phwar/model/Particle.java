@@ -17,7 +17,7 @@ public class Particle {
 		this.posX = posX;
 		this.posY = posY;
 	}
-	
+
 	void setPos(int posX, int posY) {
 		this.posX = posX;
 		this.posY = posY;
@@ -38,15 +38,20 @@ public class Particle {
 	public int getPosY() {
 		return posY;
 	}
-	
+
 	@Override
 	public String toString() {
-		return posX+"/"+posY+"|"+charge+"|"+player;
+		return posX + "/" + posY + "|" + charge + "|" + player;
 	}
 }
 
+// TODO: do I want them as own classes?
 class ParticleNeutron extends Particle {
 	public ParticleNeutron(int player) {
 		super(player, 0);
+	}
+
+	public ParticleNeutron(int player, int posX, int posY) {
+		super(player, 0, posX, posY);
 	}
 }

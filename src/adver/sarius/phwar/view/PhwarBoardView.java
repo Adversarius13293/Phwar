@@ -7,13 +7,16 @@ import adver.sarius.phwar.model.Particle;
 import adver.sarius.phwar.model.PhwarBoard;
 import javafx.event.EventHandler;
 import javafx.geometry.HPos;
+import javafx.geometry.Pos;
 import javafx.geometry.VPos;
 import javafx.scene.Node;
+import javafx.scene.control.Label;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.RowConstraints;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
 
 public class PhwarBoardView extends GridPane implements ModelListener {
 
@@ -53,8 +56,11 @@ public class PhwarBoardView extends GridPane implements ModelListener {
 									gridHeight * 0.91, hexaSize));
 						}
 					} else {
-						System.out.println("redoParticles ex");
-						// TODO: Exception?
+						if(n instanceof Label) {
+							// do nothing
+						} else {
+							System.out.println("redoParticles ex");
+						}
 					}
 				}
 			} else {
@@ -90,13 +96,22 @@ public class PhwarBoardView extends GridPane implements ModelListener {
 				Hexagon hexa = new Hexagon(hexaSize, boardX, boardY);
 				hexaPane.getChildren().add(hexa);
 				hexa.setOnMouseClicked(mouseClicked);
+				
+				boolean showCoords = true;
+				if(showCoords) {
+					Label coords = new Label(boardX+"/"+boardY);
+					coords.setMouseTransparent(true);
+					hexaPane.getChildren().add(coords);
+					coords.setTextFill(Color.ORANGERED);
+					StackPane.setAlignment(coords, Pos.TOP_CENTER);
+				}
 			}
 			ColumnConstraints cc = new ColumnConstraints(gridWidth);
 			cc.setHalignment(HPos.LEFT);
 			getColumnConstraints().add(cc);
 		}
-		// TODO: Can I use the loops above efficiently for that?
-		IntStream.range(0, boardSize * 4 + 1).forEach(i -> {
+		// one additional empty row for overlapping hexagon 
+		IntStream.range(0, boardSize * 4 + 2).forEach(i -> {
 			RowConstraints rc = new RowConstraints(gridHeight);
 			rc.setValignment(VPos.TOP);
 			getRowConstraints().add(rc);

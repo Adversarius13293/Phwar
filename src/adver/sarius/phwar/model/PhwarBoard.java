@@ -32,17 +32,15 @@ public class PhwarBoard {
 
 	private Set<Particle> particles;
 
-	private Map<Particle, Set<Particle>> toCapture = new HashMap<>();
-
 	// TODO: fields durch cells ersetzen
 	// TODO: particles nach draußen nur in lesend?
 
 	public PhwarBoard() {
 	}
 
-	public Map<Particle, Set<Particle>> move(int startX, int startY, int targetX, int targetY) {
-		if (state != State.STARTED) {
-			// TODO: Exception
+	public boolean move(int startX, int startY, int targetX, int targetY) {
+		if (state != State.NOT_MOVED) {
+			throw new IllegalMoveException("You already moved.");
 		}
 		if (startX == targetX && startY == targetY) {
 			throw new IllegalMoveException("You need to move a distance of at least 1.");
@@ -60,34 +58,17 @@ public class PhwarBoard {
 			throw new IllegalMoveException("There has to be a particle on the start position.");
 		}
 		Particle pStart = start.get();
-		if (pStart.getPlayer() != playerQueue.peek()) {
+		if (pStart.getPlayer() != getCurrentPlayer()) {
 			throw new IllegalMoveException("Only the current player is allowed to move.");
 		}
 		if (!isUnobstructedLine(startX, startY, targetX, targetY)) {
 			throw new IllegalMoveException("You can't move on top or over particles.");
 		}
 
-		if (targetX == 0 && targetY == 0 && pStart.getCharge() == 0) {
-			pStart.setPos(targetX, targetY);
-			state = State.WON;
-			informListener();
-			return null;
-		}
-
-		Set<Particle> lineOfSight = getParticlesInLineOfSight(startX, startY);
 		pStart.setPos(targetX, targetY);
-		lineOfSight.addAll(getParticlesInLineOfSight(targetX, targetY));
-
-		Set<Particle> capture = getParticlesToCapture(lineOfSight);
-
-		capture.forEach(p -> {
-			toCapture.put(p, getParticlesInLineOfSight(p.getPosX(), p.getPosY()).stream()
-					.filter(p2 -> p2.getPlayer() == playerQueue.peek()).collect(Collectors.toSet()));
-		});
-
-		state = State.MOVED;
+		state = (targetX == 0 && targetY == 0 && pStart.getCharge() == 0) ? State.WON : State.MOVED;
 		informListener();
-		return copyCaptureMap(toCapture);
+		return state == State.WON;
 	}
 
 	public int getCurrentPlayer() {
@@ -98,8 +79,25 @@ public class PhwarBoard {
 		return this.numberOfPlayers;
 	}
 
-	public Map<Particle, Set<Particle>> getToCaptureMap() {
-		return copyCaptureMap(toCapture);
+	/**
+	 * Computes all particles of the current player and all the particles which each
+	 * of them can capture.
+	 * 
+	 * @return Map with particle of the current player as key, and a set of all
+	 *         particles it can capture as value.
+	 */
+	public Map<Particle, Set<Particle>> computeCaptureMap() {
+		Map<Particle, Set<Particle>> capture = new HashMap<>();
+
+		particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer()).forEach(p -> {
+			Set<Particle> toCap = computeParticlesThatCanBeCaptured(
+					computeParticlesInLineOfSight(p.getPosX(), p.getPosY()));
+			if (!toCap.isEmpty()) {
+				capture.put(p, toCap);
+			}
+		});
+
+		return capture;
 	}
 
 	public void registerModelListener(ModelListener listener) {
@@ -110,7 +108,6 @@ public class PhwarBoard {
 		listener.forEach(l -> l.modelChanged());
 	}
 
-	// since I also keep the map for validation when capturing
 	private Map<Particle, Set<Particle>> copyCaptureMap(Map<Particle, Set<Particle>> toCopy) {
 		Map<Particle, Set<Particle>> ret = new HashMap<>();
 		toCopy.forEach((p, pSet) -> {
@@ -119,16 +116,17 @@ public class PhwarBoard {
 		return ret;
 	}
 
-	private Set<Particle> getParticlesToCapture(Set<Particle> particles) {
+	private Set<Particle> computeParticlesThatCanBeCaptured(Set<Particle> particles) {
 		Set<Particle> ret = new HashSet<>();
 
-		particles.stream().filter(p -> p.getPlayer() != playerQueue.peek()).forEach(p -> {
+		// TODO: Use only streams and filter?
+		particles.stream().filter(p -> p.getPlayer() != getCurrentPlayer()).forEach(p -> {
 			int charge = 0;
 			int ownParticles = 0;
 
-			for (Particle p2 : getParticlesInLineOfSight(p.getPosX(), p.getPosY())) {
+			for (Particle p2 : computeParticlesInLineOfSight(p.getPosX(), p.getPosY())) {
 				charge += p2.getCharge();
-				if (p2.getPlayer() == playerQueue.peek()) {
+				if (p2.getPlayer() == getCurrentPlayer()) {
 					ownParticles++;
 				}
 			}
@@ -209,14 +207,12 @@ public class PhwarBoard {
 		return state == State.WON;
 	}
 
-	public void capture(int ownX, int ownY, int oppX, int oppY) {
+	public boolean capture(int ownX, int ownY, int oppX, int oppY) {
 		// TODO: test state?
-		Optional<Particle> opp = getParticle(oppX, oppY, toCapture.keySet());
+		Optional<Particle> opp = getParticle(oppX, oppY, particles);
 		if (opp.isPresent()) {
-			Optional<Particle> own = getParticle(ownX, ownY, toCapture.get(opp.get()));
+			Optional<Particle> own = getParticle(ownX, ownY, particles);
 			if (own.isPresent()) {
-				toCapture.remove(opp.get());
-				toCapture.values().forEach(pset -> pset.remove(own.get())); // TODO: Test if callByReference
 				particles.remove(opp.get());
 				own.get().setPos(oppX, oppY);
 				state = State.CAPTURED;
@@ -232,6 +228,7 @@ public class PhwarBoard {
 		} else {
 			throw new IllegalCaptureException("You need to pick one particle from the enemy player.");
 		}
+		return state == State.WON;
 	}
 
 	/**
@@ -248,7 +245,7 @@ public class PhwarBoard {
 				.forEach(p -> counts.merge(p.getCharge(), 1, (i1, i2) -> i1 + i2));
 		if (counts.getOrDefault(0, 0) <= 0 || counts.getOrDefault(1, 0) <= 0 || counts.getOrDefault(-1, 0) <= 0) {
 			// TODO: do it more fancy
-			Set<Particle> particlesOfPlayer = particles.stream().filter(p -> p.getPlayer() != playerQueue.peek())
+			Set<Particle> particlesOfPlayer = particles.stream().filter(p -> p.getPlayer() != getCurrentPlayer())
 					.collect(Collectors.toSet());
 			particles.removeAll(particlesOfPlayer);
 			return true;
@@ -264,11 +261,10 @@ public class PhwarBoard {
 		// check all states
 		// TODO: RemovedPlayers if >2
 		// captured all particles, or can't capture anymore?
-		if (!toCapture.values().stream().allMatch(pSet -> pSet.isEmpty())) {
+		if (!computeCaptureMap().isEmpty()) {
 			System.out.println("TODO: Need to kick first.");
 			// TODO: Exception
 		}
-		toCapture.clear();
 
 		// TODO: Test if can skip
 
@@ -287,7 +283,7 @@ public class PhwarBoard {
 	 *            starting y coordinate
 	 * @return set containing 0 to 6 particles.
 	 */
-	private Set<Particle> getParticlesInLineOfSight(int posX, int posY) {
+	private Set<Particle> computeParticlesInLineOfSight(int posX, int posY) {
 		// TODO: Find better solution?
 		// corners outside the board also checked...
 		Set<Particle> ret = new HashSet<>();
@@ -341,7 +337,7 @@ public class PhwarBoard {
 		numberOfPlayers = 2;
 		playerQueue = new ArrayBlockingQueue<>(numberOfPlayers);
 		IntStream.range(0, numberOfPlayers).forEach(i -> playerQueue.add(i));
-		state = State.STARTED;
+		state = State.NOT_MOVED;
 		particles = new HashSet<>(); // TODO: positions relative to size?
 		particles.add(new Particle(0, -1, 0, 3));
 		particles.add(new Particle(0, -1, 0, 4));
@@ -414,7 +410,7 @@ public class PhwarBoard {
 }
 
 enum State {
-	STARTED, MOVED, CAPTURED, WON
+	NOT_MOVED, MOVED, CAPTURED, WON
 }
 
 // capture, and after that another capture possible?

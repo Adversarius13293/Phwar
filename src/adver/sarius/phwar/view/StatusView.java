@@ -20,7 +20,7 @@ public class StatusView extends BorderPane implements ModelListener {
 		this.board = board;
 		board.registerModelListener(this);
 
-		playerDisplays = new VBox[board.getPlayerCount()];
+		playerDisplays = new VBox[board.getActivePlayerCount()]; // TODO: player-ids have to be starting continuous from 0... 
 		Arrays.setAll(playerDisplays, i -> new VBox(new Label("Current player:"), new ParticleStackPane(i, 0, 30, -1)));
 		modelChanged();
 

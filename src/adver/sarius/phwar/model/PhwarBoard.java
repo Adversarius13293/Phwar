@@ -8,8 +8,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -18,30 +16,50 @@ import adver.sarius.phwar.view.ModelListener;
 public class PhwarBoard {
 
 	/**
-	 * Radius of the hexagon field. Size=0 means just the middle hexagon, size=1
+	 * Radius of the hexagon board. Size=0 means just the middle hexagon, size=1
 	 * means the middle hexagon with 6 surrounding ones.
 	 */
 	private int size;
-
-	// TODO: LogHistory?!
-	private int numberOfPlayers; // TODO: needed?
+	/**
+	 * Queue representing all active players in their order of succession. Current
+	 * player is the first element.
+	 */
 	private Queue<Integer> playerQueue;
-
+	/** Current state of the turn. */
 	private State state;
-
+	/** All particles on the board. */
+	private Set<Particle> particles;
+	/**
+	 * All the registered ModelListener. They will be informed if there are any
+	 * changes in the model.
+	 */
 	private Set<ModelListener> listener = new HashSet<>();
 
-	private Set<Particle> particles;
-
-	// TODO: fields durch cells ersetzen
-	// TODO: particles nach draußen nur in lesend?
-
+	// TODO: particles only reading access.
+	// TODO: LogHistory?!
 	// TODO: Cant move but could kick? Need to check skipmove/ in chekcstate in
 	// capture
+	// TODO: isWon() method to be able to check it for predefined setups
+	// TODO: "deconstruct" removes particles to avoid the use of their position?
+	// TODO: JavaDoc @params uniform
+	// TODO: nextPlayer() automatically?
 
 	public PhwarBoard() {
 	}
 
+	/**
+	 * Lets the current player move one of his particles. He can only move once at
+	 * the start of each turn.
+	 * 
+	 * @param startX
+	 * @param startY
+	 * @param targetX
+	 * @param targetY
+	 * @return true if the current (moving) player has won the game with his move,
+	 *         otherwise false.
+	 * @throws IllegalMoveException
+	 *             if the move is invalid by any reason.
+	 */
 	public boolean move(int startX, int startY, int targetX, int targetY) {
 		if (state != State.NOT_MOVED) {
 			throw new IllegalMoveException("You already moved.");
@@ -78,37 +96,89 @@ public class PhwarBoard {
 		return state == State.WON;
 	}
 
-	public int getCurrentPlayer() {
+	/**
+	 * Lets the current player capture an enemy particle with his particle. He needs
+	 * to move first if possible.
+	 * 
+	 * @param ownX
+	 * @param ownY
+	 * @param oppX
+	 * @param oppY
+	 * @return true if the current (capturing) player has won the game with his
+	 *         capture, otherwise false.
+	 * @throws IllegalCaptureException
+	 *             if the capture is invalid by any reason.
+	 */
+	public boolean capture(int ownX, int ownY, int oppX, int oppY) {
+		if (needToMove()) {
+			throw new IllegalCaptureException("You need to move first before capturing.");
+		}
+		if (state == State.WON) {
+			throw new IllegalCaptureException("The game is already won.");
+		}
+		Optional<Particle> opp = getParticle(oppX, oppY, particles);
+		if (opp.isPresent()) {
+			Optional<Particle> own = getParticle(ownX, ownY, particles);
+			if (own.isPresent()) {
+				particles.remove(opp.get());
+				own.get().setPos(oppX, oppY);
+				state = State.CAPTURED;
+
+				if ((checkParticleCount(opp.get().getPlayer()) && playerQueue.size() == 1)
+						|| (own.get().getCharge() == 0 && own.get().getPosX() == 0 && own.get().getPosY() == 0)) {
+					state = State.WON;
+				}
+				informListener();
+			} else {
+				throw new IllegalCaptureException("You need to pick one particle from the current player.");
+			}
+		} else {
+			throw new IllegalCaptureException("You need to pick one particle from the enemy player.");
+		}
+		return state == State.WON;
+	}
+
+	/**
+	 * Finishes the current turn and moves on to the next player
+	 * 
+	 * @return the new current player.
+	 */
+	public int nextPlayer() {
+		if (needToMove()) {
+			throw new IllegalTurnException("You need to move before ending the turn.");
+		}
+		if (state == State.WON) {
+			throw new IllegalTurnException("The game is already won.");
+		}
+		if (!computeParticlesThatCanCapture().isEmpty()) {
+			throw new IllegalTurnException("You need to capture all possible particles first.");
+		}
+		state = State.NOT_MOVED;
+		playerQueue.add(playerQueue.poll());
+		informListener();
 		return playerQueue.peek();
 	}
 
-	public int getPlayerCount() {
-		return this.numberOfPlayers;
-	}
-
-	public boolean needToMove() {
-		// TODO: Check if can skip and change state?!
-		return state == State.NOT_MOVED;
-	}
-
-	public void registerModelListener(ModelListener listener) {
-		this.listener.add(listener);
-	}
-
-	private void informListener() {
-		listener.forEach(l -> l.modelChanged());
-	}
-
+	/**
+	 * @return all particles of the current player that are able to capture an
+	 *         enemy.
+	 */
 	public Set<Particle> computeParticlesThatCanCapture() {
 		return particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
-				// .filter(p ->
-				// !computeParticlesToCaptureBy(p).isEmpty()).collect(Collectors.toSet());
-				.filter(p -> {
-					Set<Particle> s = computeParticlesToCaptureBy(p);
-					return !s.isEmpty();
-				}).collect(Collectors.toSet());
+				.filter(p -> !computeParticlesToCaptureBy(p).isEmpty()).collect(Collectors.toSet());
 	}
 
+	/**
+	 * Determines all particles in line of sight of the given capturer that can
+	 * actually be captured. A particle can be captured if the charge of its
+	 * particles in line of sight sums up to 0, and at least two of the particles
+	 * belong to the capturing player. The capturer particle should belong to the
+	 * current player.
+	 * 
+	 * @param capturer
+	 *            particle that should be checked for enemies to capture.
+	 * @return all enemy particles the capturer is allowed to capture.
+	 */
 	public Set<Particle> computeParticlesToCaptureBy(Particle capturer) {
 		if (capturer.getPlayer() != getCurrentPlayer()) {
 			// TODO: What now? Do I care?
@@ -127,16 +197,63 @@ public class PhwarBoard {
 				}).collect(Collectors.toSet());
 	}
 
-	public Set<Particle> computeParticlesToCaptureBy(int posX, int posY) {
-		Optional<Particle> part = getParticle(posX, posY, particles);
+	/**
+	 * Determines all particles in line of sight of the given capturer that can
+	 * actually be captured. A particle can be captured if the charge of its
+	 * particles in line of sight sums up to 0, and at least two of the particles
+	 * belong to the capturing player. The capturer particle should belong to the
+	 * current player, and there has to be a particle at the given position.
+	 * 
+	 * @param posX
+	 *            x-coordinate of the position of the capturer particle.
+	 * @param posY
+	 *            y-coordinate of the position of the capturer particle.
+	 * @return all enemy particles the capturer is allowed to capture.
+	 */
+	public Set<Particle> computeParticlesToCaptureBy(int capturerPosX, int capturerPosY) {
+		Optional<Particle> part = getParticle(capturerPosX, capturerPosY, particles);
 		if (!part.isPresent()) {
-			// TODO: Exception
-			return null;
+			throw new PhwarBoardException("No particle at the given position found that could do the capture.");
 		}
 		return computeParticlesToCaptureBy(part.get());
 	}
 
-	// TODO: JavaDoc von @params einheitlich machen
+	/**
+	 * Determines if the current player still needs to do his move. Also the only
+	 * way to skip the move turn, if the player can't move anywhere.
+	 * 
+	 * @return true if the player still needs to move. False if he already has moved
+	 *         or needs to skip his move.
+	 */
+	public boolean needToMove() {
+		// cant move anywhere, has to skip
+		if (particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
+				.noneMatch(p -> hasAtLeatOneCellToMove(p))) {
+			state = State.MOVED;
+		}
+		return state == State.NOT_MOVED;
+	}
+
+	/**
+	 * Checks if the given particle has at least one free cell directly around.
+	 * 
+	 * @param particle
+	 *            particle to check for
+	 * @return true if at least one free cell is in reach.
+	 */
+	private boolean hasAtLeatOneCellToMove(Particle particle) {
+		for (int x = -1; x < 2; x++) {
+			for (int y = -1; y < 2; y++) {
+				if (x == -y || !isInsideBoard(particle.getPosX() + x, particle.getPosY() + y)) {
+					continue;
+				}
+				if (!getParticle(particle.getPosX() + x, particle.getPosY() + y, particles).isPresent()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 
 	/**
 	 * Tests if the line from start to target has any blocking particles. The line
@@ -182,9 +299,9 @@ public class PhwarBoard {
 			return false;
 		}
 		// TODO: optimize?
-		// missing: 5/-1, 5/-2,4/-2, 5/-3,4/-3,3/-3, 5/-4,4/-4,3/-4,2/-4,
-		// 5/-5,4/-5,3/-5,2/-5,1/-5
-		// same for -5/1, -5/2,-4/2, ...
+		// missing corners: 5/-1, 5/-2,4/-2, 5/-3,4/-3,3/-3,
+		// 5/-4,4/-4,3/-4,2/-4,5/-5,4/-5,3/-5,2/-5,1/-5
+		// same for other: -5/1, -5/2,-4/2, ...
 		for (int i = 1; i <= size; i++) {
 			for (int j = size; j > size - i; j--) {
 				if ((i == posX && -j == posY) || (-i == posX && j == posY)) {
@@ -196,7 +313,6 @@ public class PhwarBoard {
 	}
 
 	/**
-	 * 
 	 * @param startX
 	 * @param startY
 	 * @param targetX
@@ -210,6 +326,14 @@ public class PhwarBoard {
 				|| (startX == startY && targetX == targetY && startX * targetX < 0);
 	}
 
+	/**
+	 * 
+	 * @param startX
+	 * @param startY
+	 * @param targetX
+	 * @param targetY
+	 * @return true if you can move from start to target in a straight line.
+	 */
 	private boolean isStraightLine(int startX, int startY, int targetX, int targetY) {
 		int diffX = startX - targetX;
 		int diffY = startY - targetY;
@@ -217,31 +341,10 @@ public class PhwarBoard {
 		return diffX == 0 || diffY == 0 || diffX == diffY;
 	}
 
+	/**
+	 * @return true if the game is already won.
+	 */
 	public boolean hasWon() {
-		return state == State.WON;
-	}
-
-	public boolean capture(int ownX, int ownY, int oppX, int oppY) {
-		// TODO: test state?
-		Optional<Particle> opp = getParticle(oppX, oppY, particles);
-		if (opp.isPresent()) {
-			Optional<Particle> own = getParticle(ownX, ownY, particles);
-			if (own.isPresent()) {
-				particles.remove(opp.get());
-				own.get().setPos(oppX, oppY);
-				state = State.CAPTURED;
-
-				if ((checkParticleCount(opp.get().getPlayer()) && playerQueue.size() == 1)
-						|| (own.get().getCharge() == 0 && own.get().getPosX() == 0 && own.get().getPosY() == 0)) {
-					state = State.WON;
-				}
-				informListener();
-			} else {
-				throw new IllegalCaptureException("You need to pick one particle from the current player.");
-			}
-		} else {
-			throw new IllegalCaptureException("You need to pick one particle from the enemy player.");
-		}
 		return state == State.WON;
 	}
 
@@ -267,25 +370,24 @@ public class PhwarBoard {
 		return false;
 	}
 
-	public Optional<Particle> getParticle(int posX, int posY, Set<Particle> particles) {
-		return particles.stream().filter(p -> p.getPosX() == posX && p.getPosY() == posY).findAny();
+	public int getCurrentPlayer() {
+		return playerQueue.peek();
 	}
 
-	public int nextPlayer() {
-		// check all states
-		// TODO: RemovedPlayers if >2
-		// captured all particles, or can't capture anymore?
-//		if (!computeCaptureMap().isEmpty()) {
-//			System.out.println("TODO: Need to kick first.");
-//			// TODO: Exception
-//		}
+	public int getActivePlayerCount() {
+		return playerQueue.size();
+	}
 
-		// TODO: Test if can skip
+	public void registerModelListener(ModelListener listener) {
+		this.listener.add(listener);
+	}
 
-		state=State.NOT_MOVED;
-		playerQueue.add(playerQueue.poll());
-		informListener();
-		return playerQueue.peek();
+	private void informListener() {
+		listener.forEach(l -> l.modelChanged());
+	}
+
+	public Optional<Particle> getParticle(int posX, int posY, Set<Particle> particles) {
+		return particles.stream().filter(p -> p.getPosX() == posX && p.getPosY() == posY).findAny();
 	}
 
 	/**
@@ -348,10 +450,10 @@ public class PhwarBoard {
 	}
 
 	public void resetDefaultBoard() {
+		int startingPlayers = 2;
 		size = 5;
-		numberOfPlayers = 2;
-		playerQueue = new ArrayBlockingQueue<>(numberOfPlayers);
-		IntStream.range(0, numberOfPlayers).forEach(i -> playerQueue.add(i));
+		playerQueue = new ArrayBlockingQueue<>(startingPlayers);
+		IntStream.range(0, startingPlayers).forEach(i -> playerQueue.add(i));
 		state = State.NOT_MOVED;
 		particles = new HashSet<>(); // TODO: positions relative to size?
 		particles.add(new Particle(0, -1, 0, 3));
@@ -374,15 +476,15 @@ public class PhwarBoard {
 		particles.add(new Particle(1, -1, -2, -5));
 
 		// capture, and after that another capture possible?
-//		 particles = new HashSet<>();
-//		 particles.add(new Particle(0, 0, -1, 4));
-//		 particles.add(new Particle(1, 0, -1, -4));
-//		 particles.add(new Particle(1, 1, -3, -2));
-//		 particles.add(new Particle(1, 1, -2, -1));
-//		 particles.add(new Particle(1, -1, -2, 0));
-//		 particles.add(new Particle(0, -1, 0, -2));
-//		 particles.add(new Particle(0, -1, 1, -1));
-//		 particles.add(new Particle(0, 1, 2, 2));
+		// particles = new HashSet<>();
+		// particles.add(new Particle(0, 0, -1, 4));
+		// particles.add(new Particle(1, 0, -1, -4));
+		// particles.add(new Particle(1, 1, -3, -2));
+		// particles.add(new Particle(1, 1, -2, -1));
+		// particles.add(new Particle(1, -1, -2, 0));
+		// particles.add(new Particle(0, -1, 0, -2));
+		// particles.add(new Particle(0, -1, 1, -1));
+		// particles.add(new Particle(0, 1, 2, 2));
 
 		// take away all valid capturer?
 		// particles = new HashSet<>();
@@ -427,13 +529,3 @@ public class PhwarBoard {
 enum State {
 	NOT_MOVED, MOVED, CAPTURED, WON
 }
-
-// capture, and after that another capture possible? --> yes
-// opponent puts in bad position -> need to move first. But can I capture that
-// bad position, even if I changed nothing with my move? --> yes
-// can i capture particles by moving my particle away, or only the ones i can
-// capture from target position --> whole board
-// multiple captures, then all at once -> no chains? and what if you take away
-// all valid particles for other captures? -> not at once. recalculate after
-// each capture
-// particle can only capture once!? --> no, unlimited number of times

@@ -51,6 +51,9 @@ public class PhwarBoard {
 		if (!isInsideBoard(targetX, targetY)) {
 			throw new IllegalMoveException("You can't move outside of the board.");
 		}
+		if(isCrossingCenter(startX, startY, targetX, targetY)) {
+			throw new IllegalMoveException("You can't move over the center point.");
+		}
 
 		Optional<Particle> start = getParticle(startX, startY, particles);
 
@@ -157,6 +160,7 @@ public class PhwarBoard {
 	 *         particle on target.
 	 */
 	private boolean isUnobstructedLine(int startX, int startY, int targetX, int targetY) {
+		// direction from target to start
 		int signX = (int) Math.signum(startX - targetX);
 		int signY = (int) Math.signum(startY - targetY);
 		int x = 0;
@@ -194,6 +198,20 @@ public class PhwarBoard {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * 
+	 * @param startX
+	 * @param startY
+	 * @param targetX
+	 * @param targetY
+	 * @return true if move would cross center 0/0. Starting from or targeting center returns false.
+	 */
+	private boolean isCrossingCenter(int startX, int startY, int targetX, int targetY) {
+		return (startX == 0 && targetX == 0 && startY * targetY < 0)
+				|| (startY == 0 && targetY == 0 && startX * targetX < 0)
+				|| (startX == startY && targetX == targetY && startX * targetX < 0);
 	}
 
 	private boolean isStraightLine(int startX, int startY, int targetX, int targetY) {

@@ -30,6 +30,10 @@ public class PhwarBoardController {
 		this.buttonNext = buttonNext;
 		buttonNext.setOnAction(this::handleButtonEvent);
 		feedback = new SimpleStringProperty("Ready!");
+		
+		if(autoSkip) {
+			buttonNext.fire();
+		}
 	}
 	
 	public StringProperty getFeedbackProperty() {
@@ -42,16 +46,12 @@ public class PhwarBoardController {
 		this.getHexagonFunc = getHexagonFunc;
 	}
 
-	private void markPossibleCapturer(boolean isCapturer, Hexagon hexaToCapture) {
-		if (!toCapture.isEmpty()) {
-			Particle particle = toCapture.keySet().stream()
-					.filter(p -> p.getPosX() == hexaToCapture.getPosX() && p.getPosY() == hexaToCapture.getPosY())
-					.findAny().orElse(null);
-			if (particle != null) {
-				toCapture.get(particle)
-						.forEach(p -> getHexagonFunc.apply(p.getPosX(), p.getPosY()).setCapturer(isCapturer));
-			}
-		}
+	private void markAsToCapture(boolean isToCapture, Set<Particle> toCapture) {
+		toCapture.forEach(p -> getHexagonFunc.apply(p.getPosX(), p.getPosY()).setToCapture(isToCapture));
+	}
+	
+	private void markAsCapturer(boolean isCapturer, Set<Particle> capturer) {
+		capturer.forEach(p -> getHexagonFunc.apply(p.getPosX(), p.getPosY()).setCapturer(isCapturer));
 	}
 	
 	public void handleButtonEvent(ActionEvent e) {
@@ -112,33 +112,37 @@ public class PhwarBoardController {
 			feedClear();
 		}
 		Hexagon hexa = (Hexagon) e.getTarget();
-		if (lastClicked == null) {
+		if (lastClicked == null) { // nothing highlighted yet. Highlight for moving or capturing.
 			lastClicked = hexa;
 			lastClicked.setClicked(true);
-			markPossibleCapturer(true, lastClicked);
+			// TODO: via state?
+			if(!board.needToMove()) {
+				markAsToCapture(true, board.computeParticlesToCaptureBy(lastClicked.getPosX(), lastClicked.getPosY()));
+			}			
 		} else {
-			if (hexa == lastClicked) { // TODO: when re-sizing hexagons? Object not == anymore
+			// TODO: when re-sizing hexagons? Object not == anymore
+			if (hexa == lastClicked) { // un-highlight
 				lastClicked.setClicked(false);
-				markPossibleCapturer(false, lastClicked);
+				markAsToCapture(false, board.computeParticlesToCaptureBy(lastClicked.getPosX(), lastClicked.getPosY()));
 				lastClicked = null;
 			} else {
-				if (toCapture.isEmpty()) {
-					// trying to make a move
+				if (board.needToMove()) { // trying to move
 					try {
-						toCapture = board.move(lastClicked.getPosX(), lastClicked.getPosY(), hexa.getPosX(),
-								hexa.getPosY());
+						boolean won = board.move(lastClicked.getPosX(), lastClicked.getPosY(), hexa.getPosX(), hexa.getPosY());
 						lastClicked.setClicked(false);
 						lastClicked = null;
 
-						if (toCapture == null) {
+						if (won) {
 							feed("Congratulation! You won!");
 							state = State.WON;
-						} else if (toCapture.isEmpty()) {
-							finishedTurn();
 						} else {
-							// highlight all toCapture.
-							toCapture.keySet()
-									.forEach(p -> getHexagonFunc.apply(p.getPosX(), p.getPosY()).setToCapture(true));
+							Set<Particle> capturer = board.computeParticlesThatCanCapture();
+							if(capturer.isEmpty()) {
+								finishedTurn();
+							} else {
+								// highlight all possible capturer
+								markAsCapturer(true, capturer);
+							}
 						}
 					} catch (IllegalMoveException ex) {
 						// TODO: show warn message?
@@ -146,22 +150,24 @@ public class PhwarBoardController {
 						lastClicked = null;
 						feed(ex.getMessage());
 					}
-				} else {
-					// need to capture
+				} else { // need to capture
+					// TODO: Test if state capturing?
 					try {
-						board.capture(hexa.getPosX(), hexa.getPosY(), lastClicked.getPosX(), lastClicked.getPosY());
-						markPossibleCapturer(false, lastClicked);
-						hexa.setCapturer(false);
-						lastClicked.setToCapture(false);
+						Set<Particle> capturer = board.computeParticlesThatCanCapture();
+						Set<Particle> toCapture = board.computeParticlesToCaptureBy(lastClicked.getPosX(), lastClicked.getPosY());
+						board.capture(lastClicked.getPosX(), lastClicked.getPosY(), hexa.getPosX(), hexa.getPosY());
+						markAsCapturer(false, capturer);
+						markAsToCapture(false, toCapture);
+						
+						lastClicked.setCapturer(false);
 						lastClicked.setClicked(false);
 						lastClicked = null;
-						toCapture = board.getToCaptureMap();
-						if (toCapture.values().stream().allMatch(s -> s.isEmpty())) {
-							if (!toCapture.isEmpty()) {
-								toCapture.keySet().forEach(
-										p -> getHexagonFunc.apply(p.getPosX(), p.getPosY()).setToCapture(false));
-							}
+						
+						capturer = board.computeParticlesThatCanCapture();
+						if (capturer.isEmpty()) {
 							finishedTurn();
+						} else {
+							markAsCapturer(true, capturer);
 						}
 
 					} catch (IllegalCaptureException ex) {
@@ -173,7 +179,7 @@ public class PhwarBoardController {
 		}
 	}
 
-	private PhwarKI[] strategies = new PhwarKI[] { null,new PhwarKITest(), new PhwarKITest() };
+	private PhwarKI[] strategies = new PhwarKI[] { null,null, new PhwarKITest(), new PhwarKITest() };
 
 	private void doYourMove() {
 		buttonNext.setDisable(true);
@@ -194,8 +200,8 @@ public class PhwarBoardController {
 		}
 	}
 	
+	private boolean autoSkip = true;
 	private void finishedTurn() {
-		boolean autoSkip = false;
 		state = State.FINISHED_TURN;
 		if(autoSkip) {
 			nextPlayer();
@@ -217,7 +223,7 @@ public class PhwarBoardController {
 
 	private State state=State.NOT_STARTED;
 	private Hexagon lastClicked;
-	private Map<Particle, Set<Particle>> toCapture = Collections.emptyMap();
+//	private Map<Particle, Set<Particle>> toCapture = Collections.emptyMap();
 
 }
 

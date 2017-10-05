@@ -9,6 +9,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -35,6 +36,9 @@ public class PhwarBoard {
 	// TODO: fields durch cells ersetzen
 	// TODO: particles nach draußen nur in lesend?
 
+	// TODO: Cant move but could kick? Need to check skipmove/ in chekcstate in
+	// capture
+
 	public PhwarBoard() {
 	}
 
@@ -51,8 +55,8 @@ public class PhwarBoard {
 		if (!isInsideBoard(targetX, targetY)) {
 			throw new IllegalMoveException("You can't move outside of the board.");
 		}
-		if(isCrossingCenter(startX, startY, targetX, targetY)) {
-			throw new IllegalMoveException("You can't move over the center point.");
+		if (isCrossingCenter(startX, startY, targetX, targetY)) {
+			throw new IllegalMoveException("You can't skip over the center point.");
 		}
 
 		Optional<Particle> start = getParticle(startX, startY, particles);
@@ -82,25 +86,9 @@ public class PhwarBoard {
 		return this.numberOfPlayers;
 	}
 
-	/**
-	 * Computes all particles of the current player and all the particles which each
-	 * of them can capture.
-	 * 
-	 * @return Map with particle of the current player as key, and a set of all
-	 *         particles it can capture as value.
-	 */
-	public Map<Particle, Set<Particle>> computeCaptureMap() {
-		Map<Particle, Set<Particle>> capture = new HashMap<>();
-
-		particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer()).forEach(p -> {
-			Set<Particle> toCap = computeParticlesThatCanBeCaptured(
-					computeParticlesInLineOfSight(p.getPosX(), p.getPosY()));
-			if (!toCap.isEmpty()) {
-				capture.put(p, toCap);
-			}
-		});
-
-		return capture;
+	public boolean needToMove() {
+		// TODO: Check if can skip and change state?!
+		return state == State.NOT_MOVED;
 	}
 
 	public void registerModelListener(ModelListener listener) {
@@ -111,34 +99,41 @@ public class PhwarBoard {
 		listener.forEach(l -> l.modelChanged());
 	}
 
-	private Map<Particle, Set<Particle>> copyCaptureMap(Map<Particle, Set<Particle>> toCopy) {
-		Map<Particle, Set<Particle>> ret = new HashMap<>();
-		toCopy.forEach((p, pSet) -> {
-			ret.put(p, Collections.unmodifiableSet(pSet));
-		});
-		return ret;
+	public Set<Particle> computeParticlesThatCanCapture() {
+		return particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
+				// .filter(p ->
+				// !computeParticlesToCaptureBy(p).isEmpty()).collect(Collectors.toSet());
+				.filter(p -> {
+					Set<Particle> s = computeParticlesToCaptureBy(p);
+					return !s.isEmpty();
+				}).collect(Collectors.toSet());
 	}
 
-	private Set<Particle> computeParticlesThatCanBeCaptured(Set<Particle> particles) {
-		Set<Particle> ret = new HashSet<>();
+	public Set<Particle> computeParticlesToCaptureBy(Particle capturer) {
+		if (capturer.getPlayer() != getCurrentPlayer()) {
+			// TODO: What now? Do I care?
+		}
+		return computeParticlesInLineOfSight(capturer.getPosX(), capturer.getPosY()).stream()
+				.filter(p -> p.getPlayer() != capturer.getPlayer()).filter(p -> {
+					int charge = 0;
+					int ownParticles = 0;
+					for (Particle p2 : computeParticlesInLineOfSight(p.getPosX(), p.getPosY())) {
+						charge += p2.getCharge();
+						if (p2.getPlayer() == capturer.getPlayer()) {
+							ownParticles++;
+						}
+					}
+					return charge == 0 && ownParticles >= 2;
+				}).collect(Collectors.toSet());
+	}
 
-		// TODO: Use only streams and filter?
-		particles.stream().filter(p -> p.getPlayer() != getCurrentPlayer()).forEach(p -> {
-			int charge = 0;
-			int ownParticles = 0;
-
-			for (Particle p2 : computeParticlesInLineOfSight(p.getPosX(), p.getPosY())) {
-				charge += p2.getCharge();
-				if (p2.getPlayer() == getCurrentPlayer()) {
-					ownParticles++;
-				}
-			}
-			if (charge == 0 && ownParticles >= 2) {
-				ret.add(p);
-			}
-		});
-
-		return ret;
+	public Set<Particle> computeParticlesToCaptureBy(int posX, int posY) {
+		Optional<Particle> part = getParticle(posX, posY, particles);
+		if (!part.isPresent()) {
+			// TODO: Exception
+			return null;
+		}
+		return computeParticlesToCaptureBy(part.get());
 	}
 
 	// TODO: JavaDoc von @params einheitlich machen
@@ -206,7 +201,8 @@ public class PhwarBoard {
 	 * @param startY
 	 * @param targetX
 	 * @param targetY
-	 * @return true if move would cross center 0/0. Starting from or targeting center returns false.
+	 * @return true if move would cross center 0/0. Starting from or targeting
+	 *         center returns false.
 	 */
 	private boolean isCrossingCenter(int startX, int startY, int targetX, int targetY) {
 		return (startX == 0 && targetX == 0 && startY * targetY < 0)
@@ -279,13 +275,14 @@ public class PhwarBoard {
 		// check all states
 		// TODO: RemovedPlayers if >2
 		// captured all particles, or can't capture anymore?
-		if (!computeCaptureMap().isEmpty()) {
-			System.out.println("TODO: Need to kick first.");
-			// TODO: Exception
-		}
+//		if (!computeCaptureMap().isEmpty()) {
+//			System.out.println("TODO: Need to kick first.");
+//			// TODO: Exception
+//		}
 
 		// TODO: Test if can skip
 
+		state=State.NOT_MOVED;
 		playerQueue.add(playerQueue.poll());
 		informListener();
 		return playerQueue.peek();
@@ -377,15 +374,15 @@ public class PhwarBoard {
 		particles.add(new Particle(1, -1, -2, -5));
 
 		// capture, and after that another capture possible?
-		// particles = new HashSet<>();
-		// particles.add(new Particle(0, 0, -1, 4));
-		// particles.add(new Particle(1, 0, -1, -4));
-		// particles.add(new Particle(1, 1, -3, -2));
-		// particles.add(new Particle(1, 1, -2, -1));
-		// particles.add(new Particle(1, -1, -2, 0));
-		// particles.add(new Particle(0, -1, 0, -2));
-		// particles.add(new Particle(0, -1, 1, -1));
-		// particles.add(new Particle(0, 1, 2, 2));
+//		 particles = new HashSet<>();
+//		 particles.add(new Particle(0, 0, -1, 4));
+//		 particles.add(new Particle(1, 0, -1, -4));
+//		 particles.add(new Particle(1, 1, -3, -2));
+//		 particles.add(new Particle(1, 1, -2, -1));
+//		 particles.add(new Particle(1, -1, -2, 0));
+//		 particles.add(new Particle(0, -1, 0, -2));
+//		 particles.add(new Particle(0, -1, 1, -1));
+//		 particles.add(new Particle(0, 1, 2, 2));
 
 		// take away all valid capturer?
 		// particles = new HashSet<>();
@@ -431,11 +428,12 @@ enum State {
 	NOT_MOVED, MOVED, CAPTURED, WON
 }
 
-// capture, and after that another capture possible?
-// opponent puts in bad position --> need to move first. But can I capture that
-// bad position, even if I changed nothing with my move? --> would say no.
+// capture, and after that another capture possible? --> yes
+// opponent puts in bad position -> need to move first. But can I capture that
+// bad position, even if I changed nothing with my move? --> yes
 // can i capture particles by moving my particle away, or only the ones i can
-// capture from target position
-// multiple captures, then all at once --> no chains? and what if you take away
-// all valid particles for other captures?
-// particle can only capture once!?
+// capture from target position --> whole board
+// multiple captures, then all at once -> no chains? and what if you take away
+// all valid particles for other captures? -> not at once. recalculate after
+// each capture
+// particle can only capture once!? --> no, unlimited number of times

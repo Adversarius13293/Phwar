@@ -41,7 +41,6 @@ public class PhwarMain extends Application {
 		double hexaSize = 40;
 		
 		PhwarBoard board = new PhwarBoard();
-		board.resetDefaultBoard();
 
 		StatusView status = new StatusView(board);
 		layout.setLeft(status);
@@ -61,6 +60,7 @@ public class PhwarMain extends Application {
 		layout.setBottom(feedback);
 		
 		primaryStage.sizeToScene();
+		primaryStage.centerOnScreen();
 	}
 	
 	@Override

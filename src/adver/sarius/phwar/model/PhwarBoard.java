@@ -13,6 +13,10 @@ import java.util.stream.IntStream;
 
 import adver.sarius.phwar.view.ModelListener;
 
+/**
+ * The board model of the game Phase War. It handles all the game operations and
+ * logic, and stores the board data.
+ */
 public class PhwarBoard {
 
 	/**
@@ -25,7 +29,10 @@ public class PhwarBoard {
 	 * player is the first element.
 	 */
 	private Queue<Integer> playerQueue;
-	/** Current state of the turn. */
+	/**
+	 * Current state of the turn. This way you can tell if the player already has
+	 * moved or the game is won.
+	 */
 	private State state;
 	/** All particles on the board. */
 	private Set<Particle> particles;
@@ -35,16 +42,14 @@ public class PhwarBoard {
 	 */
 	private Set<ModelListener> listener = new HashSet<>();
 
-	// TODO: particles only reading access.
 	// TODO: LogHistory?!
-	// TODO: Cant move but could kick? Need to check skipmove/ in chekcstate in
-	// capture
 	// TODO: isWon() method to be able to check it for predefined setups
 	// TODO: "deconstruct" removes particles to avoid the use of their position?
 	// TODO: JavaDoc @params uniform
 	// TODO: nextPlayer() automatically?
 
 	public PhwarBoard() {
+		resetDefaultBoard();
 	}
 
 	/**
@@ -52,9 +57,13 @@ public class PhwarBoard {
 	 * the start of each turn.
 	 * 
 	 * @param startX
+	 *            the x coordinate of the own particle to move with.
 	 * @param startY
+	 *            the y coordinate of the own particle to move with.
 	 * @param targetX
+	 *            the x coordinate of the empty target position.
 	 * @param targetY
+	 *            the y coordinate of the empty target position.
 	 * @return true if the current (moving) player has won the game with his move,
 	 *         otherwise false.
 	 * @throws IllegalMoveException
@@ -101,9 +110,13 @@ public class PhwarBoard {
 	 * to move first if possible.
 	 * 
 	 * @param ownX
+	 *            the x coordinate of the own particle to capture with.
 	 * @param ownY
+	 *            the y coordinate of the own particle to capture with.
 	 * @param oppX
+	 *            the x coordinate of the enemy particle to capture.
 	 * @param oppY
+	 *            the y coordinate of the enemy particle to capture.
 	 * @return true if the current (capturing) player has won the game with his
 	 *         capture, otherwise false.
 	 * @throws IllegalCaptureException
@@ -205,9 +218,9 @@ public class PhwarBoard {
 	 * current player, and there has to be a particle at the given position.
 	 * 
 	 * @param posX
-	 *            x-coordinate of the position of the capturer particle.
+	 *            the x coordinate of the capturer particle.
 	 * @param posY
-	 *            y-coordinate of the position of the capturer particle.
+	 *            the y coordinate of the capturer particle.
 	 * @return all enemy particles the capturer is allowed to capture.
 	 */
 	public Set<Particle> computeParticlesToCaptureBy(int capturerPosX, int capturerPosY) {
@@ -226,7 +239,7 @@ public class PhwarBoard {
 	 *         or needs to skip his move.
 	 */
 	public boolean needToMove() {
-		// cant move anywhere, has to skip
+		// can't move anywhere, is allowed to skip
 		if (particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
 				.noneMatch(p -> hasAtLeatOneCellToMove(p))) {
 			state = State.MOVED;
@@ -261,13 +274,13 @@ public class PhwarBoard {
 	 * isStraightLine}). The start can be occupied, while the target has to be free.
 	 * 
 	 * @param startX
-	 *            x coordinate of the start position
+	 *            the x coordinate of the start position.
 	 * @param startY
-	 *            y coordinate of the start position
+	 *            the y coordinate of the start position.
 	 * @param targetX
-	 *            x coordinate of the target position
+	 *            the x coordinate of the target position.
 	 * @param targetY
-	 *            y coordinate of the target position
+	 *            the y coordinate of the target position.
 	 * @return true if there are no particles between start and target, and no
 	 *         particle on target.
 	 */
@@ -289,9 +302,9 @@ public class PhwarBoard {
 
 	/**
 	 * @param posX
-	 *            x coordinate
+	 *            the x coordinate of the cell to check for.
 	 * @param posY
-	 *            y coordinate
+	 *            the x coordinate of the cell to check for.
 	 * @return true if position is inside the hexagon board.
 	 */
 	public boolean isInsideBoard(int posX, int posY) {
@@ -314,9 +327,13 @@ public class PhwarBoard {
 
 	/**
 	 * @param startX
+	 *            the x coordinate of the start position.
 	 * @param startY
+	 *            the y coordinate of the start position.
 	 * @param targetX
+	 *            the x coordinate of the target position.
 	 * @param targetY
+	 *            the y coordinate of the target position.
 	 * @return true if move would cross center 0/0. Starting from or targeting
 	 *         center returns false.
 	 */
@@ -329,9 +346,13 @@ public class PhwarBoard {
 	/**
 	 * 
 	 * @param startX
+	 *            the x coordinate of the start position.
 	 * @param startY
+	 *            the y coordinate of the start position.
 	 * @param targetX
+	 *            the x coordinate of the target position.
 	 * @param targetY
+	 *            the y coordinate of the target position.
 	 * @return true if you can move from start to target in a straight line.
 	 */
 	private boolean isStraightLine(int startX, int startY, int targetX, int targetY) {
@@ -361,7 +382,7 @@ public class PhwarBoard {
 		particles.stream().filter(p -> p.getPlayer() == playerToCheck)
 				.forEach(p -> counts.merge(p.getCharge(), 1, (i1, i2) -> i1 + i2));
 		if (counts.getOrDefault(0, 0) <= 0 || counts.getOrDefault(1, 0) <= 0 || counts.getOrDefault(-1, 0) <= 0) {
-			// TODO: do it more fancy
+			// TODO: do it more fancy?
 			Set<Particle> particlesOfPlayer = particles.stream().filter(p -> p.getPlayer() != getCurrentPlayer())
 					.collect(Collectors.toSet());
 			particles.removeAll(particlesOfPlayer);
@@ -370,22 +391,17 @@ public class PhwarBoard {
 		return false;
 	}
 
-	public int getCurrentPlayer() {
-		return playerQueue.peek();
-	}
-
-	public int getActivePlayerCount() {
-		return playerQueue.size();
-	}
-
-	public void registerModelListener(ModelListener listener) {
-		this.listener.add(listener);
-	}
-
-	private void informListener() {
-		listener.forEach(l -> l.modelChanged());
-	}
-
+	/**
+	 * Searches the given set for any particle that matches the position.
+	 * 
+	 * @param posX
+	 *            the x coordinate of the position to look for a particle.
+	 * @param posY
+	 *            the y coordinate of the position to look for a particle
+	 * @param particles
+	 *            set of particles to be searched in.
+	 * @return possibly found particle at the given position.
+	 */
 	public Optional<Particle> getParticle(int posX, int posY, Set<Particle> particles) {
 		return particles.stream().filter(p -> p.getPosX() == posX && p.getPosY() == posY).findAny();
 	}
@@ -395,13 +411,16 @@ public class PhwarBoard {
 	 * Particle on starting position will be ignored.
 	 * 
 	 * @param posX
-	 *            starting x coordinate
+	 *            the x coordinate of the position to look for other particle in
+	 *            line of sight.
 	 * @param posY
-	 *            starting y coordinate
+	 *            the y coordinate of the position to look for other particle in
+	 *            line of sight.
+	 * 
 	 * @return set containing 0 to 6 particles.
 	 */
 	private Set<Particle> computeParticlesInLineOfSight(int posX, int posY) {
-		// TODO: Find better solution?
+		// TODO: Find better algorithm?
 		// corners outside the board also checked...
 		Set<Particle> ret = new HashSet<>();
 		for (int i = posX + 1; i <= size; i++) { // diagonal top right
@@ -449,13 +468,64 @@ public class PhwarBoard {
 		return ret;
 	}
 
-	public void resetDefaultBoard() {
+	/**
+	 * @return Set containing all the particles that are currently in-play.
+	 */
+	public Set<Particle> getParticles() {
+		return Collections.unmodifiableSet(particles);
+	}
+
+	/**
+	 * @return the current player that has to do its turn.
+	 */
+	public int getCurrentPlayer() {
+		return playerQueue.peek();
+	}
+
+	/**
+	 * @return the amount of players that haven't lost yet.
+	 */
+	public int getActivePlayerCount() {
+		return playerQueue.size();
+	}
+
+	/**
+	 * Register a listener to receive updates on data changes.
+	 * 
+	 * @param listener
+	 *            the listener which should be informed about changes.
+	 */
+	public void registerModelListener(ModelListener listener) {
+		this.listener.add(listener);
+	}
+
+	/**
+	 * Informs all registered listeners that something may have changed.
+	 */
+	private void informListener() {
+		listener.forEach(l -> l.modelChanged());
+	}
+
+	/**
+	 * Returns the radius of the hexagon board. Size=0 means just the middle
+	 * hexagon, size=1 means the middle hexagon with 6 surrounding ones.
+	 * 
+	 * @return size of the board.
+	 */
+	public int getSize() {
+		return this.size;
+	}
+
+	/**
+	 * Creates a default board setup.
+	 */
+	private void resetDefaultBoard() {
 		int startingPlayers = 2;
 		size = 5;
 		playerQueue = new ArrayBlockingQueue<>(startingPlayers);
 		IntStream.range(0, startingPlayers).forEach(i -> playerQueue.add(i));
 		state = State.NOT_MOVED;
-		particles = new HashSet<>(); // TODO: positions relative to size?
+		particles = new HashSet<>();
 		particles.add(new Particle(0, -1, 0, 3));
 		particles.add(new Particle(0, -1, 0, 4));
 		particles.add(new Particle(0, 0, 0, 5));
@@ -500,28 +570,75 @@ public class PhwarBoard {
 		// particles.add(new Particle(0, 1, -3, 0));
 
 	}
-	// KIs in Board oder Controller? Board kann kein UserInput, aber hat alle Daten
-	// --> nicht ins board...
 
-	public int getSize() {
-		return this.size;
+	/**
+	 * Returns a character for the string representation depending on player and
+	 * particle charge. Null returns the symbol for an empty cell.
+	 * 
+	 * @param particle
+	 *            the particle to get the character for.
+	 * @return character identifying the particle type of the owner, or empty cell.
+	 */
+	private char getCharForParticle(Particle particle) {
+		if (particle == null) {
+			return '*';
+		}
+		char[] symbols;
+		switch (particle.getPlayer()) {
+		case 0:
+			symbols = new char[] { '-', '0', '+' };
+			break;
+		case 1:
+			symbols = new char[] { 'e', 'n', 'p' };
+			break;
+		default:
+			symbols = new char[] { (char) ('A' + particle.getPlayer()), (char) ('B' + particle.getPlayer()),
+					(char) ('C' + particle.getPlayer()) };
+		}
+		return symbols[particle.getCharge() + 1];
 	}
 
-	public Set<Particle> getParticles() {
-		return Collections.unmodifiableSet(particles);
-	}
-
+	/**
+	 * Returns a character representation of the current board with its particles.
+	 * Each player has its own characters for every type of particles.
+	 */
 	@Override
 	public String toString() {
-		// TODO: More player, different sizes ...
 		StringBuilder builder = new StringBuilder();
-		String prefix = "                         ";
+		int width = 2;
+		char[] maxInset = new char[size * width];
 
-		// 0/-5
-		// -1/-5 1/-4
-		// -2/-5 0/-5 2/-3
-		// -3/
+		int x = 0;
+		int y = -size;
+		for (int i = 0; i <= 4 * size; i++) {
+			int plusOne = 0;
+			int loops;
+			if (i < size) {
+				loops = i;
+			} else if (i < 3 * size) {
+				plusOne = (i + size % 2) % 2;
+				loops = size - plusOne;
+			} else {
+				loops = 4 * size - i;
+			}
 
+			builder.append(maxInset, 0, (size + x) * width + plusOne * width);
+			for (int j = 0; j <= loops; j++) {
+				// builder.append(x+j*2+plusOne).append("/").append(y+j);
+				builder.append(getCharForParticle(getParticle(x + j * 2 + plusOne, y + j, particles).orElse(null)));
+				builder.append(maxInset, 0, 2 * width - 1);
+			}
+			builder.append(System.lineSeparator());
+
+			if (i < size) {
+				x--;
+			} else if (i < 3 * size) {
+				y += 1 - plusOne;
+			} else {
+				x++;
+				y++;
+			}
+		}
 		return builder.toString();
 	}
 }

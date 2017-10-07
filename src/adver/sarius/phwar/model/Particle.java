@@ -6,16 +6,23 @@ public class Particle {
 	private int posX;
 	private int posY;
 
-	public Particle(int player, int type) {
+	public Particle(int player, int charge) {
 		this.player = player;
-		this.charge = type;
+		this.charge = charge;
 	}
 
-	public Particle(int player, int type, int posX, int posY) {
+	public Particle(int player, int charge, int posX, int posY) {
 		this.player = player;
-		this.charge = type;
+		this.charge = charge;
 		this.posX = posX;
 		this.posY = posY;
+	}
+	
+	public Particle(Particle particle) {
+		this.player = particle.player;
+		this.charge = particle.charge;
+		this.posX = particle.posX;
+		this.posY = particle.posY;
 	}
 
 	void setPos(int posX, int posY) {

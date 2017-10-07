@@ -3,11 +3,11 @@ package adver.sarius.phwar.model;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -50,6 +50,20 @@ public class PhwarBoard {
 
 	public PhwarBoard() {
 		resetDefaultBoard();
+	}
+	
+	/**
+	 * Copy constructor. Also copies the particle Objects. But does NOT copy or register any listener.
+	 * 
+	 * @param board the board to copy everything from, besides listener.
+	 */
+	public PhwarBoard(PhwarBoard board) {
+		this.size = board.size;
+		this.playerQueue = new LinkedList<>(board.playerQueue);
+		this.state = board.state;
+		this.particles = new HashSet<>();
+		board.particles.forEach(p -> this.particles.add(new Particle(p)));
+//		this.listener = new HashSet<>(board.listener);
 	}
 
 	/**
@@ -130,18 +144,23 @@ public class PhwarBoard {
 			throw new IllegalCaptureException("The game is already won.");
 		}
 		Optional<Particle> opp = getParticle(oppX, oppY, particles);
-		if (opp.isPresent()) {
+		if (opp.isPresent() && opp.get().getPlayer() != getCurrentPlayer()) {
 			Optional<Particle> own = getParticle(ownX, ownY, particles);
-			if (own.isPresent()) {
-				particles.remove(opp.get());
-				own.get().setPos(oppX, oppY);
-				state = State.CAPTURED;
+			if (own.isPresent() && own.get().getPlayer() == getCurrentPlayer()) {
+				
+				if(computeParticlesToCaptureBy(own.get()).contains(opp.get())) {
+					particles.remove(opp.get());
+					own.get().setPos(oppX, oppY);
+					state = State.CAPTURED;
 
-				if ((checkParticleCount(opp.get().getPlayer()) && playerQueue.size() == 1)
-						|| (own.get().getCharge() == 0 && own.get().getPosX() == 0 && own.get().getPosY() == 0)) {
-					state = State.WON;
+					if ((checkParticleCount(opp.get().getPlayer()) && playerQueue.size() == 1)
+							|| (own.get().getCharge() == 0 && own.get().getPosX() == 0 && own.get().getPosY() == 0)) {
+						state = State.WON;
+					}
+					informListener();
+				} else {
+					throw new IllegalCaptureException("That particle is not in reach to be captured.");
 				}
-				informListener();
 			} else {
 				throw new IllegalCaptureException("You need to pick one particle from the current player.");
 			}
@@ -194,6 +213,7 @@ public class PhwarBoard {
 	 */
 	public Set<Particle> computeParticlesToCaptureBy(Particle capturer) {
 		if (capturer.getPlayer() != getCurrentPlayer()) {
+			System.out.println("computeParticlesToCaptureBy() wrong player?");
 			// TODO: What now? Do I care?
 		}
 		return computeParticlesInLineOfSight(capturer.getPosX(), capturer.getPosY()).stream()
@@ -337,7 +357,7 @@ public class PhwarBoard {
 	 * @return true if move would cross center 0/0. Starting from or targeting
 	 *         center returns false.
 	 */
-	private boolean isCrossingCenter(int startX, int startY, int targetX, int targetY) {
+	public boolean isCrossingCenter(int startX, int startY, int targetX, int targetY) {
 		return (startX == 0 && targetX == 0 && startY * targetY < 0)
 				|| (startY == 0 && targetY == 0 && startX * targetX < 0)
 				|| (startX == startY && targetX == targetY && startX * targetX < 0);
@@ -522,7 +542,7 @@ public class PhwarBoard {
 	private void resetDefaultBoard() {
 		int startingPlayers = 2;
 		size = 5;
-		playerQueue = new ArrayBlockingQueue<>(startingPlayers);
+		playerQueue = new LinkedList<>();
 		IntStream.range(0, startingPlayers).forEach(i -> playerQueue.add(i));
 		state = State.NOT_MOVED;
 		particles = new HashSet<>();
@@ -546,15 +566,15 @@ public class PhwarBoard {
 		particles.add(new Particle(1, -1, -2, -5));
 
 		// capture, and after that another capture possible?
-		// particles = new HashSet<>();
-		// particles.add(new Particle(0, 0, -1, 4));
-		// particles.add(new Particle(1, 0, -1, -4));
-		// particles.add(new Particle(1, 1, -3, -2));
-		// particles.add(new Particle(1, 1, -2, -1));
-		// particles.add(new Particle(1, -1, -2, 0));
-		// particles.add(new Particle(0, -1, 0, -2));
-		// particles.add(new Particle(0, -1, 1, -1));
-		// particles.add(new Particle(0, 1, 2, 2));
+//		 particles = new HashSet<>();
+//		 particles.add(new Particle(0, 0, -1, 4));
+//		 particles.add(new Particle(1, 0, -1, -4));
+//		 particles.add(new Particle(1, 1, -3, -2));
+//		 particles.add(new Particle(1, 1, -2, -1));
+//		 particles.add(new Particle(1, -1, -2, 0));
+//		 particles.add(new Particle(0, -1, 0, -2));
+//		 particles.add(new Particle(0, -1, 1, -1));
+//		 particles.add(new Particle(0, 1, 2, 2));
 
 		// take away all valid capturer?
 		// particles = new HashSet<>();

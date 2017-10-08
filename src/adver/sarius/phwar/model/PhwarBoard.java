@@ -403,9 +403,10 @@ public class PhwarBoard {
 				.forEach(p -> counts.merge(p.getCharge(), 1, (i1, i2) -> i1 + i2));
 		if (counts.getOrDefault(0, 0) <= 0 || counts.getOrDefault(1, 0) <= 0 || counts.getOrDefault(-1, 0) <= 0) {
 			// TODO: do it more fancy?
-			Set<Particle> particlesOfPlayer = particles.stream().filter(p -> p.getPlayer() != getCurrentPlayer())
+			Set<Particle> particlesOfPlayer = particles.stream().filter(p -> p.getPlayer() == playerToCheck)
 					.collect(Collectors.toSet());
 			particles.removeAll(particlesOfPlayer);
+			playerQueue.remove(playerToCheck);
 			return true;
 		}
 		return false;

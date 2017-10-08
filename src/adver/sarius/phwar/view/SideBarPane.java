@@ -39,6 +39,9 @@ public class SideBarPane extends BorderPane implements ModelListener {
 		ListView<String> logView = new ListView<>();
 		logEntries = FXCollections.observableArrayList();
 		logView.setItems(logEntries);
+		logView.setMinHeight(60);
+		logView.setPrefWidth(328);
+		DragResizer.makeResizable(logView, DragResizer.EAST+DragResizer.SOUTH);
 
 		statusView.getChildren().add(logView);
 

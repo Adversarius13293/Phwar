@@ -2,6 +2,7 @@ package adver.sarius.phwar.model;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -783,6 +784,7 @@ public class PhwarBoard {
 		StringBuilder builder = new StringBuilder();
 		int width = 2;
 		char[] maxInset = new char[size * width];
+		Arrays.fill(maxInset, ' ');
 
 		int x = 0;
 		int y = -size;

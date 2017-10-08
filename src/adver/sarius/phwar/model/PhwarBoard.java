@@ -28,7 +28,7 @@ public class PhwarBoard {
 	 * Queue representing all active players in their order of succession. Current
 	 * player is the first element.
 	 */
-	private Queue<Integer> playerQueue;
+	Queue<Integer> playerQueue;
 	/**
 	 * Current state of the turn. This way you can tell if the player already has
 	 * moved or the game is won.
@@ -47,6 +47,7 @@ public class PhwarBoard {
 	// TODO: "deconstruct" removes particles to avoid the use of their position?
 	// TODO: JavaDoc @params uniform
 	// TODO: nextPlayer() automatically?
+	// TODO: make getParticle() static?
 
 	public PhwarBoard() {
 		resetDefaultBoard();
@@ -195,9 +196,21 @@ public class PhwarBoard {
 	 * @return all particles of the current player that are able to capture an
 	 *         enemy.
 	 */
-	public Set<Particle> computeParticlesThatCanCapture() {
-		return particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
-				.filter(p -> !computeParticlesToCaptureBy(p).isEmpty()).collect(Collectors.toSet());
+//	public Set<Particle> computeParticlesThatCanCapture() {
+//		return particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
+//				.filter(p -> !computeParticlesToCaptureBy(p).isEmpty()).collect(Collectors.toSet());
+//	}
+	
+	public Map<Particle, Set<Particle>> computeParticlesThatCanCapture() {
+		Map<Particle, Set<Particle>> ret = new HashMap<>();
+		particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
+				.forEach(p -> {
+					Set<Particle> toCapture = computeParticlesToCaptureBy(p);
+					if(!toCapture.isEmpty()) {
+						ret.put(p, toCapture);
+					}
+				});
+		return ret;
 	}
 
 	/**

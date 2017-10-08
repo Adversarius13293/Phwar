@@ -3,6 +3,7 @@ package adver.sarius.phwar.ai;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import adver.sarius.phwar.model.Particle;
@@ -196,22 +197,22 @@ public abstract class PhwarAI {
 	 *            the particle to start the captures with.
 	 * @return all combinations of captures possible.
 	 */
-	protected Set<List<MoveCapture>> getAllPossibleCaptureCombinations(PhwarBoard board, Particle capturer) {
+	protected Set<List<MoveCapture>> getAllPossibleCaptureCombinations(PhwarBoard board, Particle capturer, Set<Particle> toCapture) {
 		Set<List<MoveCapture>> ret = new HashSet<>();
-		board.computeParticlesToCaptureBy(capturer).forEach(p -> {
+		toCapture.forEach(p -> {
 			PhwarBoard copy = new PhwarBoard(board);
 			MoveCapture cMove = new MoveCapture(capturer.getPosX(), capturer.getPosY(), p.getPosX(), p.getPosY());
 			boolean won = copy.capture(capturer.getPosX(), capturer.getPosY(), p.getPosX(), p.getPosY());
 
-			Set<Particle> canCapture = copy.computeParticlesThatCanCapture();
+			Map<Particle, Set<Particle>> canCapture = copy.computeParticlesThatCanCapture();
 
 			if (won || canCapture.isEmpty()) { // end of recursion
 				List<MoveCapture> captures = new ArrayList<>();
 				captures.add(cMove);
 				ret.add(captures);
 			} else {
-				canCapture.forEach(cap -> {
-					getAllPossibleCaptureCombinations(copy, cap).forEach(s -> {
+				canCapture.forEach((cap, toCap) -> {
+					getAllPossibleCaptureCombinations(copy, cap, toCap).forEach(s -> {
 						s.add(0, cMove);
 						ret.add(s);
 					});

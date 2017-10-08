@@ -1,5 +1,6 @@
 package adver.sarius.phwar;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
 
@@ -148,7 +149,7 @@ public class PhwarBoardController {
 							feed("Congratulation! You have won!");
 							state = State.WON;
 						} else {
-							Set<Particle> capturer = board.computeParticlesThatCanCapture();
+							Set<Particle> capturer = board.computeParticlesThatCanCapture().keySet();
 							if (capturer.isEmpty()) {
 								finishedTurn();
 							} else {
@@ -165,11 +166,11 @@ public class PhwarBoardController {
 				} else { // need to capture
 					// TODO: Test if state capturing?
 					try {
-						Set<Particle> capturer = board.computeParticlesThatCanCapture();
-						Set<Particle> toCapture = board.computeParticlesToCaptureBy(lastClicked.getPosX(),
-								lastClicked.getPosY());
+						Map<Particle, Set<Particle>> capturer = board.computeParticlesThatCanCapture();
+						Set<Particle> toCapture = capturer.get(board
+								.getParticle(lastClicked.getPosX(), lastClicked.getPosY(), capturer.keySet()).get());
 						board.capture(lastClicked.getPosX(), lastClicked.getPosY(), hexa.getPosX(), hexa.getPosY());
-						markAsCapturer(false, capturer);
+						markAsCapturer(false, capturer.keySet());
 						markAsToCapture(false, toCapture);
 
 						lastClicked.setCapturer(false);
@@ -180,7 +181,7 @@ public class PhwarBoardController {
 						if (capturer.isEmpty()) {
 							finishedTurn();
 						} else {
-							markAsCapturer(true, capturer);
+							markAsCapturer(true, capturer.keySet());
 						}
 
 					} catch (IllegalCaptureException ex) {
@@ -193,6 +194,7 @@ public class PhwarBoardController {
 	}
 
 	private PhwarAI[] strategies = new PhwarAI[] { new SinglePathAI(2), new SinglePathAI(2), new PhwarAITest() };
+	private int captureDelay = 000;
 
 	private void doYourMove() {
 		buttonNext.setDisable(true);
@@ -201,31 +203,39 @@ public class PhwarBoardController {
 			// Can't modify GUI in other threads. But doing the computation there would
 			// block the GUI.
 			state = State.COMPUTING;
-			int delay = 1000;
+
 			Thread th = new Thread(() -> {
 				ai.computeTurn(board);
-				// TODO: TODO: TODO: TODO: Really ugly with this threads and sleeps... And
-				// really unreliable if the timings and orders may change. But that was the first
-				// thing working to implement a delay after each move and capture.
-				Platform.runLater(() -> {
-					ai.executeComputedMove(board);
-				});
 
-				try {
-					Thread.sleep(delay);
-					while (ai.hasAnotherCapture()) {
-						Platform.runLater(() -> ai.executeComputedSingleCapture(board));
-						Thread.sleep(delay);
+				if (captureDelay <= 0) {
+					Platform.runLater(() -> {
+						ai.executeTurn(board);
+						finishedTurn();
+					});
+				} else {
+					// TODO: TODO: TODO: TODO: Really ugly with this threads and sleeps... And
+					// really unreliable if the timings and orders may change. But that was the
+					// first thing working to implement a delay after each move and capture.
+					Platform.runLater(() -> {
+						ai.executeComputedMove(board);
+					});
+
+					try {
+						Thread.sleep(captureDelay);
+						while (ai.hasAnotherCapture()) {
+							Platform.runLater(() -> ai.executeComputedSingleCapture(board));
+							Thread.sleep(captureDelay);
+						}
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
 
-				Platform.runLater(() -> {
-					// ai.executeTurn(board);
-					finishedTurn();
-				});
+					Platform.runLater(() -> {
+						// ai.executeTurn(board);
+						finishedTurn();
+					});
+				}
 			});
 			th.setDaemon(true);
 			th.start();

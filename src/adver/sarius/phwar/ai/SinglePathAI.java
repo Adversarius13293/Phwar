@@ -1,6 +1,7 @@
 package adver.sarius.phwar.ai;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -51,7 +52,7 @@ public class SinglePathAI extends PhwarAI {
 	private double rateAllPossibleCapturesAndProceed(PhwarBoard board, int currentTurn, double bestValueBefore) {
 		double bestValue = Double.NEGATIVE_INFINITY;
 
-		Set<Particle> capturer = board.computeParticlesThatCanCapture();
+		Map<Particle, Set<Particle>> capturer = board.computeParticlesThatCanCapture();
 		if (capturer.isEmpty()) {
 			if (currentTurn >= maxTurns) {
 				bestValue = computeBoardValue(board);
@@ -68,9 +69,9 @@ public class SinglePathAI extends PhwarAI {
 			return bestValue;
 		} else {
 			// test capturing with each capturer
-			for (Particle p : capturer) {
+			for (Particle p : capturer.keySet()) {
 				// test every capture path when starting with that capturer
-				for (List<MoveCapture> l : getAllPossibleCaptureCombinations(board, p)) {
+				for (List<MoveCapture> l : getAllPossibleCaptureCombinations(board, p, capturer.get(p))) {
 					PhwarBoard copy = new PhwarBoard(board);
 					if (captureAll(copy, l)) {
 						if (currentTurn == 1) {

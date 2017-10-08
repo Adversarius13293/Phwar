@@ -1,9 +1,12 @@
 package adver.sarius.phwar.model;
 
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -41,12 +44,21 @@ public class PhwarBoard {
 	 * changes in the model.
 	 */
 	private Set<ModelListener> listener = new HashSet<>();
+	/** Stores a description of all the actions that already happened. **/
+	private List<String> log = new ArrayList<>();
+	/**
+	 * Current round of the game. Starts at 1 and increments every time when all
+	 * players finished their turn once.
+	 **/
+	private int round;
 
 	// TODO: LogHistory?!
 	// TODO: isWon() method to be able to check it for predefined setups
 	// TODO: "deconstruct" removes particles to avoid the use of their position?
 	// TODO: nextPlayer() automatically?
 	// TODO: make getParticle() static?
+	// TODO: inform listener in logMessage()?
+	// TODO: call unchecked methods by checked ones?
 
 	public PhwarBoard() {
 		resetDefaultBoard();
@@ -54,7 +66,7 @@ public class PhwarBoard {
 
 	/**
 	 * Copy constructor. Also copies the particle Objects. But does NOT copy or
-	 * register any listener.
+	 * register any listener or logs.
 	 * 
 	 * @param board
 	 *            the board to copy everything from, besides listener.
@@ -66,7 +78,10 @@ public class PhwarBoard {
 		this.particles = new HashSet<>();
 		board.particles.forEach(p -> this.particles.add(new Particle(p)));
 		// this.listener = new HashSet<>(board.listener);
+		counter++;
 	}
+
+	public static long counter;
 
 	/**
 	 * Lets the current player move one of his particles. He can only move once at
@@ -116,7 +131,12 @@ public class PhwarBoard {
 		}
 
 		pStart.setPos(targetX, targetY);
+		logMessage(
+				"moves " + pStart.getName() + "from " + startX + "/" + startY + " to " + targetX + "/" + targetY + ".");
 		state = (targetX == 0 && targetY == 0 && pStart.getCharge() == 0) ? State.WON : State.MOVED;
+		if (state == State.WON) {
+			logMessage("wins by moving his " + pStart.getName() + " on the center cell.");
+		}
 		informListener();
 		return state == State.WON;
 	}
@@ -154,10 +174,14 @@ public class PhwarBoard {
 					particles.remove(opp.get());
 					own.get().setPos(oppX, oppY);
 					state = State.CAPTURED;
+					logMessage("captures " + opp.get().getName() + " at " + oppX + "/" + oppY + " from player "
+							+ opp.get().getPlayer() + " with " + own.get().getName() + " at " + ownX + "/" + ownY
+							+ ".");
 
 					if ((checkParticleCount(opp.get().getPlayer()) && playerQueue.size() == 1)
 							|| (own.get().getCharge() == 0 && own.get().getPosX() == 0 && own.get().getPosY() == 0)) {
 						state = State.WON;
+						logMessage("wins by doing this capture.");
 					}
 					informListener();
 				} else {
@@ -187,16 +211,23 @@ public class PhwarBoard {
 		if (!computeParticlesThatCanCapture().isEmpty()) {
 			throw new IllegalTurnException("You need to capture all possible particles first.");
 		}
+		logMessage("finishes the turn.");
 		state = State.NOT_MOVED;
+		int lastPlayer = getCurrentPlayer();
 		playerQueue.add(playerQueue.poll());
+		if (lastPlayer > getCurrentPlayer()) {
+			round++;
+		}
+		// logMessage("starts the turn.");
 		informListener();
-		return playerQueue.peek();
+		return getCurrentPlayer();
 	}
 
 	/**
 	 * Does not check any rules or board conditions! You should always use
 	 * {@link #move(int, int, int, int) move}, unless you need a fast execution and
-	 * are sure, that the move is valid.
+	 * are sure, that the move is valid. No listener are informed, and most of the
+	 * logs will be skipped.
 	 * 
 	 * @see #move(int, int, int, int)
 	 * @param startX
@@ -220,7 +251,8 @@ public class PhwarBoard {
 	/**
 	 * Does not check any rules or board conditions! You should always use
 	 * {@link #capture(int, int, int, int) capture}, unless you need a fast
-	 * execution and are sure, that the capture is valid.
+	 * execution and are sure, that the capture is valid. No listener are informed,
+	 * and most of the logs will be skipped.
 	 * 
 	 * @see #capture(int, int, int, int)
 	 * @param ownX
@@ -250,15 +282,20 @@ public class PhwarBoard {
 	/**
 	 * Does not check any rules or board conditions! You should always use
 	 * {@link #nextPlayer()}, unless you need a fast execution and are sure, that
-	 * the turn is valid.
+	 * the turn is valid. No listener are informed, and most of the logs will be
+	 * skipped.
 	 * 
 	 * @see #nextPlayer()
 	 * @return the new current player.
 	 */
 	public int nextPlayerUnchecked() {
 		state = State.NOT_MOVED;
+		int lastPlayer = getCurrentPlayer();
 		playerQueue.add(playerQueue.poll());
-		return playerQueue.peek();
+		if (lastPlayer > getCurrentPlayer()) {
+			round++;
+		}
+		return getCurrentPlayer();
 	}
 
 	/**
@@ -339,6 +376,7 @@ public class PhwarBoard {
 		// can't move anywhere, is allowed to skip
 		if (particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
 				.noneMatch(p -> hasAtLeatOneCellToMove(p))) {
+			logMessage("has no particle to move with. Skipping the move.");
 			state = State.MOVED;
 		}
 		return state == State.NOT_MOVED;
@@ -480,6 +518,8 @@ public class PhwarBoard {
 				.size() != 3) {
 			particles.removeIf(p -> p.getPlayer() == playerToCheck);
 			playerQueue.remove(playerToCheck);
+			logMessage(
+					"removed player " + playerToCheck + " from the game by capturing the last particle of one charge.");
 			return true;
 		}
 		return false;
@@ -584,6 +624,31 @@ public class PhwarBoard {
 	}
 
 	/**
+	 * @return the current round of the game. Starts at 1 and increments every time
+	 *         when all players finished their turn once.
+	 */
+	public int getRound() {
+		return this.round;
+	}
+
+	/**
+	 * Returns the radius of the hexagon board. Size=0 means just the middle
+	 * hexagon, size=1 means the middle hexagon with 6 surrounding ones.
+	 * 
+	 * @return size of the board.
+	 */
+	public int getSize() {
+		return this.size;
+	}
+
+	/**
+	 * @return unmodifiable view of all saved log entries.
+	 */
+	public List<String> getLogEntries() {
+		return Collections.unmodifiableList(log);
+	}
+
+	/**
 	 * Register a listener to receive updates on data changes.
 	 * 
 	 * @param listener
@@ -601,13 +666,13 @@ public class PhwarBoard {
 	}
 
 	/**
-	 * Returns the radius of the hexagon board. Size=0 means just the middle
-	 * hexagon, size=1 means the middle hexagon with 6 surrounding ones.
+	 * Appends the message to the log with the current time and player as prefix.
 	 * 
-	 * @return size of the board.
+	 * @param message
+	 *            message to log
 	 */
-	public int getSize() {
-		return this.size;
+	private void logMessage(String message) {
+		log.add("[" + LocalTime.now() + "] Player " + getCurrentPlayer() + " " + message);
 	}
 
 	/**
@@ -616,6 +681,8 @@ public class PhwarBoard {
 	private void resetDefaultBoard() {
 		int startingPlayers = 2;
 		size = 5;
+		round = 1;
+		log = new ArrayList<>();
 		playerQueue = new LinkedList<>();
 		IntStream.range(0, startingPlayers).forEach(i -> playerQueue.add(i));
 		state = State.NOT_MOVED;
@@ -663,6 +730,7 @@ public class PhwarBoard {
 		// particles.add(new Particle(0, 1, -1, -2));
 		// particles.add(new Particle(0, 1, -3, 0));
 
+		informListener();
 	}
 
 	/**

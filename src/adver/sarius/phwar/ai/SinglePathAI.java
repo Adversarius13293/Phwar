@@ -37,11 +37,12 @@ public class SinglePathAI extends PhwarAI {
 		this.captureIndex = 0;
 
 		PhwarBoard copy = new PhwarBoard(board);
+		PhwarBoard.counter = 0;
 		rateTurns(copy, 1);
 		long diff =System.currentTimeMillis() -start; 
 		time +=  diff;
 		counts++;
-		System.out.println("("+board.getCurrentPlayer()+") Time needed: " + diff + " Average: " + (time / counts));
+		System.out.println("("+board.getCurrentPlayer()+") Time needed: " + diff + " Average: " + (time / counts) + ". Copies created: " + PhwarBoard.counter);
 	}
 
 	private double computeBoardValue(PhwarBoard board) {

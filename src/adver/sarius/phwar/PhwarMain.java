@@ -4,7 +4,7 @@ import java.io.IOException;
 
 import adver.sarius.phwar.model.PhwarBoard;
 import adver.sarius.phwar.view.PhwarBoardView;
-import adver.sarius.phwar.view.StatusView;
+import adver.sarius.phwar.view.SideBarPane;
 import javafx.application.Application;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -42,10 +42,10 @@ public class PhwarMain extends Application {
 		
 		PhwarBoard board = new PhwarBoard();
 
-		StatusView status = new StatusView(board);
-		layout.setLeft(status);
+		SideBarPane sideBar = new SideBarPane(board);
+		layout.setLeft(sideBar);
 		
-		PhwarBoardController controller = new PhwarBoardController(board, status.getButtonNext());
+		PhwarBoardController controller = new PhwarBoardController(board, sideBar.getButtonNext());
 		PhwarBoardView view = new PhwarBoardView(board, hexaSize, controller::handleHexagonClick);
 		controller.initGetHexagonFunc(view::getHexagon);
 		layout.setCenter(view);

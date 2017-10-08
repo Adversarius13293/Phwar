@@ -45,6 +45,18 @@ public class Particle {
 	public int getPosY() {
 		return posY;
 	}
+	
+	public String getName() {
+		if(charge == -1) {
+			return "electron";
+		} else if(charge == 0) {
+			return "neutron";
+		} else if(charge == 1) {
+			return "positron";
+		} else {
+			return "UNKNOWN";
+		}
+	}
 
 	@Override
 	public String toString() {

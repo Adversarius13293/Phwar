@@ -28,7 +28,7 @@ public class SinglePathAI extends PhwarAI {
 	public SinglePathAI(int maxTurns) {
 		this.maxTurns = maxTurns;
 	}
-	
+
 	@Override
 	public void computeTurn(PhwarBoard board) {
 		long start = System.currentTimeMillis();
@@ -38,9 +38,10 @@ public class SinglePathAI extends PhwarAI {
 
 		PhwarBoard copy = new PhwarBoard(board);
 		rateTurns(copy, 1);
-		time += System.currentTimeMillis() - start;
+		long diff =System.currentTimeMillis() -start; 
+		time +=  diff;
 		counts++;
-		System.out.println("Average computation time player "+board.getCurrentPlayer() + ": "+(time/counts));
+		System.out.println("("+board.getCurrentPlayer()+") Time needed: " + diff + " Average: " + (time / counts));
 	}
 
 	private double computeBoardValue(PhwarBoard board) {
@@ -57,7 +58,7 @@ public class SinglePathAI extends PhwarAI {
 			if (currentTurn >= maxTurns) {
 				bestValue = computeBoardValue(board);
 			} else {
-				board.nextPlayer();
+				board.nextPlayerUnchecked();
 				// good value for next player is bad value for current player
 				bestValue = -rateTurns(board, currentTurn + 1);
 			}
@@ -73,7 +74,7 @@ public class SinglePathAI extends PhwarAI {
 				// test every capture path when starting with that capturer
 				for (List<MoveCapture> l : getAllPossibleCaptureCombinations(board, p, capturer.get(p))) {
 					PhwarBoard copy = new PhwarBoard(board);
-					if (captureAll(copy, l)) {
+					if (captureAllUnchecked(copy, l)) {
 						if (currentTurn == 1) {
 							this.captures = l;
 						}
@@ -83,7 +84,7 @@ public class SinglePathAI extends PhwarAI {
 						if (currentTurn >= maxTurns) {
 							value = computeBoardValue(copy);
 						} else {
-							copy.nextPlayer();
+							copy.nextPlayerUnchecked();
 							// +l.size() to make him capture early?
 							value = -rateTurns(copy, currentTurn + 1);
 						}
@@ -102,17 +103,17 @@ public class SinglePathAI extends PhwarAI {
 		return bestValue;
 	}
 
-	// TODO: Only useful with >3 turns... and even then only 1 round before save win. 
+	// TODO: Only useful with >3 turns... and even then only 1 round before save
+	// win.
 	private int getWinTurnForValue(double value) {
 		if (value <= 0) {
 			return winInTurn;
 		}
 		for (int i = 1; i <= maxTurns; i++) {
 			if (winValue / i == value) {
-				if(winInTurn < i) { // TODO: remove
+				if (winInTurn < i) { // TODO: remove if not needed
 					System.out.println("TODO: getWinTurnForValue() not like expected!");
 				}
-				System.out.println("Win in turn " + i);
 				return i;
 			}
 		}
@@ -146,7 +147,7 @@ public class SinglePathAI extends PhwarAI {
 			// test all possible moves per particle
 			for (MoveCapture m : moves) {
 				PhwarBoard copy = new PhwarBoard(board);
-				if (move(m, copy)) {
+				if (copy.moveUnchecked(m.startX, m.startY, m.targetX, m.targetY)) {
 					if (currentTurn == 1) { // first round win, pick this move.
 						this.move = m;
 						this.captures = null;

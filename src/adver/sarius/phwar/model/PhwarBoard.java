@@ -28,7 +28,7 @@ public class PhwarBoard {
 	 * Queue representing all active players in their order of succession. Current
 	 * player is the first element.
 	 */
-	Queue<Integer> playerQueue;
+	private Queue<Integer> playerQueue;
 	/**
 	 * Current state of the turn. This way you can tell if the player already has
 	 * moved or the game is won.
@@ -45,18 +45,19 @@ public class PhwarBoard {
 	// TODO: LogHistory?!
 	// TODO: isWon() method to be able to check it for predefined setups
 	// TODO: "deconstruct" removes particles to avoid the use of their position?
-	// TODO: JavaDoc @params uniform
 	// TODO: nextPlayer() automatically?
 	// TODO: make getParticle() static?
 
 	public PhwarBoard() {
 		resetDefaultBoard();
 	}
-	
+
 	/**
-	 * Copy constructor. Also copies the particle Objects. But does NOT copy or register any listener.
+	 * Copy constructor. Also copies the particle Objects. But does NOT copy or
+	 * register any listener.
 	 * 
-	 * @param board the board to copy everything from, besides listener.
+	 * @param board
+	 *            the board to copy everything from, besides listener.
 	 */
 	public PhwarBoard(PhwarBoard board) {
 		this.size = board.size;
@@ -64,7 +65,7 @@ public class PhwarBoard {
 		this.state = board.state;
 		this.particles = new HashSet<>();
 		board.particles.forEach(p -> this.particles.add(new Particle(p)));
-//		this.listener = new HashSet<>(board.listener);
+		// this.listener = new HashSet<>(board.listener);
 	}
 
 	/**
@@ -148,8 +149,8 @@ public class PhwarBoard {
 		if (opp.isPresent() && opp.get().getPlayer() != getCurrentPlayer()) {
 			Optional<Particle> own = getParticle(ownX, ownY, particles);
 			if (own.isPresent() && own.get().getPlayer() == getCurrentPlayer()) {
-				
-				if(computeParticlesToCaptureBy(own.get()).contains(opp.get())) {
+
+				if (computeParticlesToCaptureBy(own.get()).contains(opp.get())) {
 					particles.remove(opp.get());
 					own.get().setPos(oppX, oppY);
 					state = State.CAPTURED;
@@ -193,23 +194,86 @@ public class PhwarBoard {
 	}
 
 	/**
-	 * @return all particles of the current player that are able to capture an
-	 *         enemy.
+	 * Does not check any rules or board conditions! You should always use
+	 * {@link #move(int, int, int, int) move}, unless you need a fast execution and
+	 * are sure, that the move is valid.
+	 * 
+	 * @see #move(int, int, int, int)
+	 * @param startX
+	 *            the x coordinate of the own particle to move with.
+	 * @param startY
+	 *            the y coordinate of the own particle to move with.
+	 * @param targetX
+	 *            the x coordinate of the empty target position.
+	 * @param targetY
+	 *            the y coordinate of the empty target position.
+	 * @return true if the current (moving) player has won the game with his move,
+	 *         otherwise false.
 	 */
-//	public Set<Particle> computeParticlesThatCanCapture() {
-//		return particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
-//				.filter(p -> !computeParticlesToCaptureBy(p).isEmpty()).collect(Collectors.toSet());
-//	}
-	
+	public boolean moveUnchecked(int startX, int startY, int targetX, int targetY) {
+		Particle pStart = getParticle(startX, startY, particles).get();
+		pStart.setPos(targetX, targetY);
+		state = (targetX == 0 && targetY == 0 && pStart.getCharge() == 0) ? State.WON : State.MOVED;
+		return state == State.WON;
+	}
+
+	/**
+	 * Does not check any rules or board conditions! You should always use
+	 * {@link #capture(int, int, int, int) capture}, unless you need a fast
+	 * execution and are sure, that the capture is valid.
+	 * 
+	 * @see #capture(int, int, int, int)
+	 * @param ownX
+	 *            the x coordinate of the own particle to capture with.
+	 * @param ownY
+	 *            the y coordinate of the own particle to capture with.
+	 * @param oppX
+	 *            the x coordinate of the enemy particle to capture.
+	 * @param oppY
+	 *            the y coordinate of the enemy particle to capture.
+	 * @return true if the current (capturing) player has won the game with his
+	 *         capture, otherwise false.
+	 */
+	public boolean captureUnchecked(int ownX, int ownY, int oppX, int oppY) {
+		Particle own = getParticle(ownX, ownY, particles).get();
+		Particle opp = getParticle(oppX, oppY, particles).get();
+		particles.remove(opp);
+		own.setPos(oppX, oppY);
+		state = State.CAPTURED;
+		if ((checkParticleCount(opp.getPlayer()) && playerQueue.size() == 1)
+				|| (own.getCharge() == 0 && own.getPosX() == 0 && own.getPosY() == 0)) {
+			state = State.WON;
+		}
+		return state == State.WON;
+	}
+
+	/**
+	 * Does not check any rules or board conditions! You should always use
+	 * {@link #nextPlayer()}, unless you need a fast execution and are sure, that
+	 * the turn is valid.
+	 * 
+	 * @see #nextPlayer()
+	 * @return the new current player.
+	 */
+	public int nextPlayerUnchecked() {
+		state = State.NOT_MOVED;
+		playerQueue.add(playerQueue.poll());
+		return playerQueue.peek();
+	}
+
+	/**
+	 * 
+	 * @return all particles of the current player that are able to capture an enemy
+	 *         as the key, and all the enemy particles it can capture as the value.
+	 */
 	public Map<Particle, Set<Particle>> computeParticlesThatCanCapture() {
 		Map<Particle, Set<Particle>> ret = new HashMap<>();
-		particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
-				.forEach(p -> {
-					Set<Particle> toCapture = computeParticlesToCaptureBy(p);
-					if(!toCapture.isEmpty()) {
-						ret.put(p, toCapture);
-					}
-				});
+		particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer()).forEach(p -> {
+			Set<Particle> toCapture = computeParticlesToCaptureBy(p);
+			if (!toCapture.isEmpty()) {
+				ret.put(p, toCapture);
+			}
+		});
 		return ret;
 	}
 
@@ -411,14 +475,10 @@ public class PhwarBoard {
 	 * @return true if removed the given player and particles, because he lost.
 	 */
 	private boolean checkParticleCount(int playerToCheck) {
-		Map<Integer, Integer> counts = new HashMap<>();
-		particles.stream().filter(p -> p.getPlayer() == playerToCheck)
-				.forEach(p -> counts.merge(p.getCharge(), 1, (i1, i2) -> i1 + i2));
-		if (counts.getOrDefault(0, 0) <= 0 || counts.getOrDefault(1, 0) <= 0 || counts.getOrDefault(-1, 0) <= 0) {
-			// TODO: do it more fancy?
-			Set<Particle> particlesOfPlayer = particles.stream().filter(p -> p.getPlayer() == playerToCheck)
-					.collect(Collectors.toSet());
-			particles.removeAll(particlesOfPlayer);
+		if (particles.stream().filter(p -> p.getPlayer() == playerToCheck)
+				.collect(() -> new HashSet<>(), (s, p) -> s.add(p.getCharge()), (s1, s2) -> s1.addAll(s2))
+				.size() != 3) {
+			particles.removeIf(p -> p.getPlayer() == playerToCheck);
 			playerQueue.remove(playerToCheck);
 			return true;
 		}
@@ -580,15 +640,15 @@ public class PhwarBoard {
 		particles.add(new Particle(1, -1, -2, -5));
 
 		// capture, and after that another capture possible?
-//		 particles = new HashSet<>();
-//		 particles.add(new Particle(0, 0, -1, 4));
-//		 particles.add(new Particle(1, 0, -1, -4));
-//		 particles.add(new Particle(1, 1, -3, -2));
-//		 particles.add(new Particle(1, 1, -2, -1));
-//		 particles.add(new Particle(1, -1, -2, 0));
-//		 particles.add(new Particle(0, -1, 0, -2));
-//		 particles.add(new Particle(0, -1, 1, -1));
-//		 particles.add(new Particle(0, 1, 2, 2));
+		// particles = new HashSet<>();
+		// particles.add(new Particle(0, 0, -1, 4));
+		// particles.add(new Particle(1, 0, -1, -4));
+		// particles.add(new Particle(1, 1, -3, -2));
+		// particles.add(new Particle(1, 1, -2, -1));
+		// particles.add(new Particle(1, -1, -2, 0));
+		// particles.add(new Particle(0, -1, 0, -2));
+		// particles.add(new Particle(0, -1, 1, -1));
+		// particles.add(new Particle(0, 1, 2, 2));
 
 		// take away all valid capturer?
 		// particles = new HashSet<>();

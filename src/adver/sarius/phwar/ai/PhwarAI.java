@@ -34,14 +34,10 @@ public abstract class PhwarAI {
 	 *            Board to execute the turn on.
 	 */
 	public void executeTurn(PhwarBoard board) {
-		if (move != null) {
-			move(move, board);
-		}
-		if (captures != null) {
-			captureAll(board, captures);
-		}
+		move(move, board);
+		captureAll(board, captures);
 	}
-	
+
 	/**
 	 * Executes just the computed move on the given board.
 	 * 
@@ -50,9 +46,7 @@ public abstract class PhwarAI {
 	 */
 	public void executeComputedMove(PhwarBoard board) {
 		captureIndex = 0; // TODO: somehow have to ensure that it gets reset after a new computation.
-		if (move != null) {
-			move(move, board);
-		}
+		move(move, board);
 	}
 
 	/**
@@ -79,7 +73,6 @@ public abstract class PhwarAI {
 	 * @return true if there is another capture to execute.
 	 */
 	public boolean hasAnotherCapture() {
-
 		return captures != null && captures.size() > captureIndex;
 	}
 
@@ -102,12 +95,36 @@ public abstract class PhwarAI {
 	 * @param board
 	 *            the board to execute the captures for.
 	 * @param captures
-	 *            list of all captures to be executed. Empty list to do nothing.
+	 *            list of all captures to be executed. Empty list or null to do
+	 *            nothing.
 	 * @return true if the game is won by this captures, otherwise false.
 	 */
 	protected boolean captureAll(PhwarBoard board, List<MoveCapture> captures) {
+		if (captures == null) {
+			return false;
+		}
 		for (MoveCapture cap : captures) {
 			if (board.capture(cap.startX, cap.startY, cap.targetX, cap.targetY)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Does not check any rules or board conditions! You should always use
+	 * {@link #captureAll(PhwarBoard, List) captureAll}, unless you need a fast
+	 * execution and are sure, that the captures are valid.
+	 * 
+	 * @param board
+	 *            the board to execute the captures for.
+	 * @param captures
+	 *            list of all captures to be executed. Empty list to do nothing.
+	 * @return true if the game is won by this captures, otherwise false.
+	 */
+	protected boolean captureAllUnchecked(PhwarBoard board, List<MoveCapture> captures) {
+		for (MoveCapture cap : captures) {
+			if (board.captureUnchecked(cap.startX, cap.startY, cap.targetX, cap.targetY)) {
 				return true;
 			}
 		}
@@ -190,6 +207,7 @@ public abstract class PhwarAI {
 	/**
 	 * Computes all possible orders of captures the given particle can do, and all
 	 * orders of new captures possible by doing a capture.
+	 * Does not check any rules or board conditions when executing the captures!
 	 * 
 	 * @param board
 	 *            the board to compute on.
@@ -197,12 +215,13 @@ public abstract class PhwarAI {
 	 *            the particle to start the captures with.
 	 * @return all combinations of captures possible.
 	 */
-	protected Set<List<MoveCapture>> getAllPossibleCaptureCombinations(PhwarBoard board, Particle capturer, Set<Particle> toCapture) {
+	protected Set<List<MoveCapture>> getAllPossibleCaptureCombinations(PhwarBoard board, Particle capturer,
+			Set<Particle> toCapture) {
 		Set<List<MoveCapture>> ret = new HashSet<>();
 		toCapture.forEach(p -> {
 			PhwarBoard copy = new PhwarBoard(board);
 			MoveCapture cMove = new MoveCapture(capturer.getPosX(), capturer.getPosY(), p.getPosX(), p.getPosY());
-			boolean won = copy.capture(capturer.getPosX(), capturer.getPosY(), p.getPosX(), p.getPosY());
+			boolean won = copy.captureUnchecked(capturer.getPosX(), capturer.getPosY(), p.getPosX(), p.getPosY());
 
 			Map<Particle, Set<Particle>> canCapture = copy.computeParticlesThatCanCapture();
 

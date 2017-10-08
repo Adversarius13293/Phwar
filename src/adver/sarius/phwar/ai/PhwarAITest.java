@@ -1,8 +1,12 @@
-package adver.sarius.phwar.ki;
+package adver.sarius.phwar.ai;
 
 import adver.sarius.phwar.model.PhwarBoard;
 
-public class PhwarKITest extends PhwarKI {
+/**
+ * Moves the electron at 0/(-)3 one to the center and back again. computeTurn
+ * will take 2 seconds. Just to test the use of the AI interface.
+ */
+public class PhwarAITest extends PhwarAI {
 
 	private int dir = 0;
 	private int pos = -3;
@@ -20,7 +24,6 @@ public class PhwarKITest extends PhwarKI {
 			dir *= -1;
 			Thread.sleep(2000);
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

@@ -1,4 +1,4 @@
-package adver.sarius.phwar.ki;
+package adver.sarius.phwar.ai;
 
 public class MoveCapture {
 

@@ -25,13 +25,19 @@ public class PhwarBoardController {
 	private PhwarBoard board;
 	private BiFunction<Integer, Integer, Hexagon> getHexagonFunc;
 	private Button buttonNext;
+	private Hexagon lastClicked;
+	private StringProperty feedback;
+	private State state = State.NOT_STARTED;
+
+	private PhwarAI[] strategies = new PhwarAI[] { new SinglePathAI(2), new SinglePathAI(2), new PhwarAITest() };
+	private int captureDelay = 000;
+	private boolean autoSkip = true;
 
 	public PhwarBoardController(PhwarBoard board, Button buttonNext) {
 		this.board = board;
 		this.buttonNext = buttonNext;
 		buttonNext.setOnAction(this::handleButtonEvent);
 		feedback = new SimpleStringProperty("Ready!");
-
 		if (autoSkip) {
 			buttonNext.fire();
 		}
@@ -68,8 +74,6 @@ public class PhwarBoardController {
 			nextPlayer();
 		}
 	}
-
-	private StringProperty feedback;
 
 	private void feed(String message) {
 		if (message == null || message.isEmpty()) {
@@ -193,9 +197,6 @@ public class PhwarBoardController {
 		}
 	}
 
-	private PhwarAI[] strategies = new PhwarAI[] { new SinglePathAI(2), new SinglePathAI(2), new PhwarAITest() };
-	private int captureDelay = 000;
-
 	private void doYourMove() {
 		buttonNext.setDisable(true);
 		PhwarAI ai = strategies[board.getCurrentPlayer()];
@@ -239,10 +240,12 @@ public class PhwarBoardController {
 			});
 			th.setDaemon(true);
 			th.start();
+		} else {
+			if (!board.needToMove() && board.computeParticlesThatCanCapture().isEmpty()) {
+				finishedTurn();
+			}
 		}
 	}
-
-	private boolean autoSkip = true;
 
 	private void finishedTurn() {
 		state = State.FINISHED_TURN;
@@ -264,11 +267,6 @@ public class PhwarBoardController {
 		state = State.READY;
 		doYourMove();
 	}
-
-	private State state = State.NOT_STARTED;
-	private Hexagon lastClicked;
-	// private Map<Particle, Set<Particle>> toCapture = Collections.emptyMap();
-
 }
 
 enum State {

@@ -131,8 +131,8 @@ public class PhwarBoard {
 		}
 
 		pStart.setPos(targetX, targetY);
-		logMessage(
-				"moves " + pStart.getName() + "from " + startX + "/" + startY + " to " + targetX + "/" + targetY + ".");
+		logMessage("moves " + pStart.getName() + " from " + startX + "/" + startY + " to " + targetX + "/" + targetY
+				+ ".");
 		state = (targetX == 0 && targetY == 0 && pStart.getCharge() == 0) ? State.WON : State.MOVED;
 		if (state == State.WON) {
 			logMessage("wins by moving his " + pStart.getName() + " on the center cell.");
@@ -374,7 +374,7 @@ public class PhwarBoard {
 	 */
 	public boolean needToMove() {
 		// can't move anywhere, is allowed to skip
-		if (particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
+		if (state == State.NOT_MOVED && particles.stream().filter(p -> p.getPlayer() == getCurrentPlayer())
 				.noneMatch(p -> hasAtLeatOneCellToMove(p))) {
 			logMessage("has no particle to move with. Skipping the move.");
 			state = State.MOVED;
@@ -729,6 +729,20 @@ public class PhwarBoard {
 		// particles.add(new Particle(0, -1, 4, 0));
 		// particles.add(new Particle(0, 1, -1, -2));
 		// particles.add(new Particle(0, 1, -3, 0));
+
+		// can't move
+		// particles = new HashSet<>();
+		// particles.add(new Particle(0,0,0,-5));
+		// particles.add(new Particle(0,-1,-1,-5));
+		// particles.add(new Particle(0,1,-2,-5));
+		// particles.add(new Particle(1,1,-3,-5));
+		// particles.add(new Particle(1,1,-2,-4));
+		// particles.add(new Particle(1,1,-1,-4));
+		// particles.add(new Particle(1,1,0,-4));
+		// particles.add(new Particle(1,1,1,-4));
+		// particles.add(new Particle(1,-1,0,1));
+		// particles.add(new Particle(1,0,0,2));
+		// particles.add(new Particle(1,1,0,0));
 
 		informListener();
 	}

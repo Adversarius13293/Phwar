@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import adver.sarius.phwar.view.ModelListener;
+import javafx.scene.paint.Color;
 
 /**
  * The board model of the game Phase War. It handles all the game operations and
@@ -745,7 +746,164 @@ public class PhwarBoard {
 		// particles.add(new Particle(1,0,0,2));
 		// particles.add(new Particle(1,1,0,0));
 
+		// 3 particles each player
+		// particles = new HashSet<>();
+		// particles.add(new Particle(0,1, 3, 4));
+		// particles.add(new Particle(1,0, 1, -4));
+		// particles.add(new Particle(1,-1, -3, -3));
+		// particles.add(new Particle(0,-1, 0, 0));
+		// particles.add(new Particle(1,1, -1, -4));
+		// particles.add(new Particle(0,0, 0, 5));
+
 		informListener();
+	}
+
+	/**
+	 * Creates one String that represents the current particles in a normalized
+	 * form. This means the board will be rotated until the neutron of the current
+	 * player is on the top right side. The current player will be named as player
+	 * 0, and the next player will be player 1. Each particle consists of a player,
+	 * charge, x and y coordinate, and are ordered by this values.
+	 * 
+	 * Example output: 0/-1/0/0#0/0/0/-5#0/1/-3/-4#1/-1/3/3#1/0/-1/4#1/1/1/4
+	 * 
+	 * @return normalized String representing the particles of the current board.
+	 */
+	public String getNormalizedParticlesString() {
+		List<String> normalized = new ArrayList<>();
+		// TODO: use Particle and toString() or so?
+		int rotations = getRotationsToNormalize();
+		particles.forEach(p -> normalized.add(getNormalizedPlayer(p.getPlayer()) + "/" + p.getCharge() + "/"
+				+ rotatePositionGetX(p.getPosX(), p.getPosY(), rotations) + "/"
+				+ rotatePositionGetY(p.getPosX(), p.getPosY(), rotations)));
+		Collections.sort(normalized);
+		return String.join("#", normalized);
+	}
+
+	/**
+	 * Returns the normalized value for the given player. The current player will
+	 * always be number 0, the next player number 1 and so on. This way a game with
+	 * player 0 and 1 will be the same as a game with player 0 and 2 after player 1
+	 * got kicked, and of course also the same like player 2 and 1.
+	 * 
+	 * @param player
+	 *            the player to normalize.
+	 * @return normalized version of the player for the current state of game.
+	 */
+	private int getNormalizedPlayer(int player) {
+		LinkedList<Integer> copy = new LinkedList<>(playerQueue);
+		for (int i = 0; i < copy.size(); i++) {
+			if (copy.poll() == player) {
+				return i;
+			}
+		}
+		return player;
+	}
+
+	/**
+	 * @return the amount of rotations used to normalize the current board.
+	 */
+	public int getRotationsToNormalize() {
+		return getRotationsFor(particles.stream().filter(p -> p.getCharge() == 0 && p.getPlayer() == getCurrentPlayer())
+				.findAny().get());
+	}
+
+	/**
+	 * Determines the amount of rotations needed to rotate the given particle to the
+	 * top right side. If the particle is on the center, 0 will be returned.
+	 * 
+	 * @param neutron
+	 *            the neutron that should be rotated to the top right.
+	 * @return number of rotations between 0 and 5, inclusive.
+	 */
+	private int getRotationsFor(Particle neutron) {
+		int posX = neutron.getPosX();
+		int posY = neutron.getPosY();
+		int rotation = 0;
+		if (posX - posY >= 0 && posX <= -1) {
+			rotation = 1;
+		} else if (posY <= 0 && posX - posY <= -1) {
+			rotation = 2;
+		} else if (posX <= 0 && posY >= 1) {
+			rotation = 3;
+		} else if (posY - posX >= 0 && posX >= 1) {
+			rotation = 4;
+		} else if (posY >= 0 && posX - posY >= 1) {
+			rotation = 5;
+			// } else if (posX >= 0 && posY <= -1) {
+			// rotation = 0;
+		}
+		return rotation;
+	}
+
+	/**
+	 * Rotates one position around the center point of the board. One rotation is
+	 * from one corner to the next corner, so 6 rotations result in the same
+	 * position.
+	 * 
+	 * @param posX
+	 *            the x coordinate of position to rotate.
+	 * @param posY
+	 *            the y coordinate of position to rotate.
+	 * @param rotations
+	 *            number of rotations, positive or negative. 6 rotations are equals
+	 *            to 0 rotations.
+	 * @return rotated x coordinate.
+	 */
+	public static int rotatePositionGetX(int posX, int posY, int rotations) {
+		rotations = rotations % 6;
+		int newX = posX;
+		// int newY = posY;
+		if (1 == rotations || -5 == rotations) {
+			// 0/-5 --> 5/0, 1/-4 --> 5/1, 1/-3 --> 4/1, 4/-1 --> 5/4, 1/-1 --> 2/1
+			newX = posX - posY;
+			// newY = posX;
+		} else if (2 == rotations || -4 == rotations) {
+			newX = -posY;
+			// newY = posX-posY;
+		} else if (3 == rotations || -3 == rotations) {
+			newX = -posX;
+			// newY = -posY;
+		} else if (4 == rotations || -2 == rotations) {
+			newX = -posX + posY;
+			// newY = -posX;
+		} else if (5 == rotations || -1 == rotations) {
+			newX = posY;
+			// newY = -posX+posY;
+		}
+		return newX;
+	}
+
+	// TODO: combine x and y into one method/object
+	/**
+	 * Rotates one position around the center point of the board. One rotation is
+	 * from one corner to the next corner, so 6 rotations result in the same
+	 * position.
+	 * 
+	 * @param posX
+	 *            the x coordinate of position to rotate.
+	 * @param posY
+	 *            the y coordinate of position to rotate.
+	 * @param rotations
+	 *            number of rotations, positive or negative. 6 rotations are equals
+	 *            to 0 rotations.
+	 * @return rotated y coordinate.
+	 */
+	public static int rotatePositionGetY(int posX, int posY, int rotations) {
+		rotations = rotations % 6;
+		int newY = posY;
+		if (1 == rotations || -5 == rotations) {
+			newY = posX;
+		} else if (2 == rotations || -4 == rotations) {
+			newY = posX - posY;
+		} else if (3 == rotations || -3 == rotations) {
+			newY = -posY;
+		} else if (4 == rotations || -2 == rotations) {
+			newY = -posX;
+		} else if (5 == rotations || -1 == rotations) {
+			newY = -posX + posY;
+		}
+		return newY;
 	}
 
 	/**

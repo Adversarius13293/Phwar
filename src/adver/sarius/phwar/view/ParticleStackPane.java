@@ -36,10 +36,10 @@ public class ParticleStackPane extends StackPane {
 		Paint ret;
 		switch (player) {
 		case 0:
-			ret = Color.WHITE;
+			ret = Color.BLACK;
 			break;
 		case 1:
-			ret = Color.BLACK;
+			ret = Color.WHITE;
 			break;
 		case 2:
 			ret = Color.LIGHTGRAY;
@@ -55,10 +55,10 @@ public class ParticleStackPane extends StackPane {
 		Paint ret;
 		switch (player) {
 		case 1:
-			ret = Color.WHITE;
+			ret = Color.BLACK;
 			break;
 		default:
-			ret = Color.BLACK;
+			ret = Color.WHITE;
 		}
 		return ret;
 	}

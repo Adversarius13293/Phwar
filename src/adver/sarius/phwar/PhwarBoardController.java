@@ -2,6 +2,7 @@ package adver.sarius.phwar;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.BiFunction;
 
 import adver.sarius.phwar.ai.PhwarAI;
@@ -16,6 +17,8 @@ import adver.sarius.phwar.view.Hexagon;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.concurrent.Service;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.scene.control.Button;
 import javafx.scene.input.MouseEvent;
@@ -139,7 +142,6 @@ public class PhwarBoardController {
 							board.computeParticlesToCaptureBy(lastClicked.getPosX(), lastClicked.getPosY()));
 				}
 				lastClicked = null;
-				System.out.println("###############");
 				System.out.println(board);
 			} else {
 				if (board.needToMove()) { // trying to move
@@ -201,45 +203,39 @@ public class PhwarBoardController {
 		buttonNext.setDisable(true);
 		PhwarAI ai = strategies[board.getCurrentPlayer()];
 		if (ai != null) {// not wating for player input
+			state = State.COMPUTING;
 			// Can't modify GUI in other threads. But doing the computation there would
 			// block the GUI.
-			state = State.COMPUTING;
-
-			Thread th = new Thread(() -> {
-				ai.computeTurn(board);
-
-				if (captureDelay <= 0) {
-					Platform.runLater(() -> {
-						ai.executeTurn(board);
-						finishedTurn();
-					});
-				} else {
-					// TODO: TODO: TODO: TODO: Really ugly with this threads and sleeps... And
-					// really unreliable if the timings and orders may change. But that was the
-					// first thing working to implement a delay after each move and capture.
-					Platform.runLater(() -> {
-						ai.executeComputedMove(board);
-					});
-
-					try {
-						Thread.sleep(captureDelay);
-						while (ai.hasAnotherCapture()) {
-							Platform.runLater(() -> ai.executeComputedSingleCapture(board));
+			Service<Void> service = new Service<Void>() {
+				@Override
+				protected Task<Void> createTask() {
+					return new Task<Void>() {
+						@Override
+						protected Void call() throws Exception {
+							ai.computeTurn(board);
+							CountDownLatch latch1 = new CountDownLatch(1);
+							Platform.runLater(() -> {
+								ai.executeComputedMove(board);
+								latch1.countDown();
+							});
 							Thread.sleep(captureDelay);
+							latch1.await();
+							while (ai.hasAnotherCapture()) {
+								CountDownLatch latch2 = new CountDownLatch(1);
+								Platform.runLater(() -> {
+									ai.executeComputedSingleCapture(board);
+									latch2.countDown();
+								});
+								Thread.sleep(captureDelay);
+								latch2.await();
+							}
+							Platform.runLater(() -> finishedTurn());
+							return null;
 						}
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-					Platform.runLater(() -> {
-						// ai.executeTurn(board);
-						finishedTurn();
-					});
+					};
 				}
-			});
-			th.setDaemon(true);
-			th.start();
+			};
+			service.start();
 		} else {
 			if (!board.needToMove() && board.computeParticlesThatCanCapture().isEmpty()) {
 				finishedTurn();

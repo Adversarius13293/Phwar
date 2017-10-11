@@ -152,7 +152,7 @@ public abstract class PhwarAI {
 		int size = board.getSize();
 
 		for (int i = posX + 1; i <= size; i++) { // diagonal top right
-			if (board.getParticle(i, posY, board.getParticles()).isPresent() || !board.isInsideBoard(i, posY)
+			if (PhwarBoard.getParticle(i, posY, board.getParticles()).isPresent() || !board.isInsideBoard(i, posY)
 					|| board.isCrossingCenter(posX, posY, i, posY)) {
 				break;
 			} else {
@@ -160,7 +160,7 @@ public abstract class PhwarAI {
 			}
 		}
 		for (int i = posX - 1; i >= -size; i--) { // diagonal bottom left
-			if (board.getParticle(i, posY, board.getParticles()).isPresent() || !board.isInsideBoard(i, posY)
+			if (PhwarBoard.getParticle(i, posY, board.getParticles()).isPresent() || !board.isInsideBoard(i, posY)
 					|| board.isCrossingCenter(posX, posY, i, posY)) {
 				break;
 			} else {
@@ -168,7 +168,7 @@ public abstract class PhwarAI {
 			}
 		}
 		for (int i = posY + 1; i <= size; i++) { // top
-			if (board.getParticle(posX, i, board.getParticles()).isPresent() || !board.isInsideBoard(posX, i)
+			if (PhwarBoard.getParticle(posX, i, board.getParticles()).isPresent() || !board.isInsideBoard(posX, i)
 					|| board.isCrossingCenter(posX, posY, posX, i)) {
 				break;
 			} else {
@@ -176,7 +176,7 @@ public abstract class PhwarAI {
 			}
 		}
 		for (int i = posY - 1; i >= -size; i--) { // bottom
-			if (board.getParticle(posX, i, board.getParticles()).isPresent() || !board.isInsideBoard(posX, i)
+			if (PhwarBoard.getParticle(posX, i, board.getParticles()).isPresent() || !board.isInsideBoard(posX, i)
 					|| board.isCrossingCenter(posX, posY, posX, i)) {
 				break;
 			} else {
@@ -184,7 +184,7 @@ public abstract class PhwarAI {
 			}
 		}
 		for (int i = 1; posX + i <= size && posY + i <= size; i++) { // bottom right
-			if (board.getParticle(posX + i, posY + i, board.getParticles()).isPresent()
+			if (PhwarBoard.getParticle(posX + i, posY + i, board.getParticles()).isPresent()
 					|| !board.isInsideBoard(posX + i, posY + i)
 					|| board.isCrossingCenter(posX, posY, posX + i, posY + i)) {
 				break;
@@ -193,7 +193,7 @@ public abstract class PhwarAI {
 			}
 		}
 		for (int i = -1; posX + i >= -size && posY + i >= -size; i--) { // top left
-			if (board.getParticle(posX + i, posY + i, board.getParticles()).isPresent()
+			if (PhwarBoard.getParticle(posX + i, posY + i, board.getParticles()).isPresent()
 					|| !board.isInsideBoard(posX + i, posY + i)
 					|| board.isCrossingCenter(posX, posY, posX + i, posY + i)) {
 				break;

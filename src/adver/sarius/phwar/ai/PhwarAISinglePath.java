@@ -18,14 +18,14 @@ import adver.sarius.phwar.model.PhwarBoard;
  * biggest advantage over particle counts without losing. And if that is not
  * possible, pick the move which delays the loss the longest.
  */
-public class SinglePathAI extends PhwarAI {
+public class PhwarAISinglePath extends PhwarAI {
 	private int maxTurns;
 	private double time;
 	private int counts;
 	private final double winValue = 1000000;
 	private int winInTurn = Integer.MAX_VALUE;
 
-	public SinglePathAI(int maxTurns) {
+	public PhwarAISinglePath(int maxTurns) {
 		this.maxTurns = maxTurns;
 	}
 

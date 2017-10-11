@@ -3,6 +3,7 @@ package adver.sarius.phwar.view;
 import java.util.Arrays;
 
 import adver.sarius.phwar.model.PhwarBoard;
+import adver.sarius.util.javafx.DragResizer;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;

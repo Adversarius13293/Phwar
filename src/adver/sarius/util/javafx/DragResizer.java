@@ -1,4 +1,4 @@
-package adver.sarius.phwar.view;
+package adver.sarius.util.javafx;
 
 import javafx.scene.Cursor;
 import javafx.scene.input.MouseEvent;

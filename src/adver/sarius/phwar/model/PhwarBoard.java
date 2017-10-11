@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import adver.sarius.phwar.view.ModelListener;
-import javafx.scene.paint.Color;
 
 /**
  * The board model of the game Phase War. It handles all the game operations and
@@ -538,7 +537,7 @@ public class PhwarBoard {
 	 *            set of particles to be searched in.
 	 * @return possibly found particle at the given position.
 	 */
-	public Optional<Particle> getParticle(int posX, int posY, Set<Particle> particles) {
+	public static Optional<Particle> getParticle(int posX, int posY, Set<Particle> particles) {
 		return particles.stream().filter(p -> p.getPosX() == posX && p.getPosY() == posY).findAny();
 	}
 

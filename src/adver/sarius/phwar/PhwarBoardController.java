@@ -6,8 +6,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.function.BiFunction;
 
 import adver.sarius.phwar.ai.PhwarAI;
+import adver.sarius.phwar.ai.PhwarAISinglePath;
 import adver.sarius.phwar.ai.PhwarAITest;
-import adver.sarius.phwar.ai.SinglePathAI;
 import adver.sarius.phwar.model.IllegalCaptureException;
 import adver.sarius.phwar.model.IllegalMoveException;
 import adver.sarius.phwar.model.Particle;
@@ -32,7 +32,7 @@ public class PhwarBoardController {
 	private StringProperty feedback;
 	private State state = State.NOT_STARTED;
 
-	private PhwarAI[] strategies = new PhwarAI[] { new SinglePathAI(2), new SinglePathAI(2), new PhwarAITest() };
+	private PhwarAI[] strategies = new PhwarAI[] { new PhwarAISinglePath(2), new PhwarAISinglePath(2), new PhwarAITest() };
 	private int captureDelay = 000;
 	private boolean autoSkip = true;
 
@@ -173,7 +173,7 @@ public class PhwarBoardController {
 					// TODO: Test if state capturing?
 					try {
 						Map<Particle, Set<Particle>> capturer = board.computeParticlesThatCanCapture();
-						Set<Particle> toCapture = capturer.get(board
+						Set<Particle> toCapture = capturer.get(PhwarBoard
 								.getParticle(lastClicked.getPosX(), lastClicked.getPosY(), capturer.keySet()).get());
 						board.capture(lastClicked.getPosX(), lastClicked.getPosY(), hexa.getPosX(), hexa.getPosY());
 						markAsCapturer(false, capturer.keySet());

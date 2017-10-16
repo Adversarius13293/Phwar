@@ -39,10 +39,11 @@ public class PhwarAISinglePath extends PhwarAI {
 		PhwarBoard copy = new PhwarBoard(board);
 		PhwarBoard.counter = 0;
 		rateTurns(copy, 1);
-		long diff =System.currentTimeMillis() -start; 
-		time +=  diff;
+		long diff = System.currentTimeMillis() - start;
+		time += diff;
 		counts++;
-		System.out.println("("+board.getCurrentPlayer()+") Time needed: " + diff + " Average: " + (time / counts) + ". Copies created: " + PhwarBoard.counter);
+		System.out.println("(" + board.getCurrentPlayer() + ") Time needed: " + diff + " Average: " + (time / counts)
+				+ ". Copies created: " + PhwarBoard.counter);
 	}
 
 	private double computeBoardValue(PhwarBoard board) {
@@ -73,7 +74,7 @@ public class PhwarAISinglePath extends PhwarAI {
 			// test capturing with each capturer
 			for (Particle p : capturer.keySet()) {
 				// test every capture path when starting with that capturer
-				for (List<MoveCapture> l : getAllPossibleCaptureCombinations(board, p, capturer.get(p))) {
+				for (List<MoveCapture> l : MoveCapture.getAllPossibleCaptureCombinations(board, p, capturer.get(p))) {
 					PhwarBoard copy = new PhwarBoard(board);
 					if (captureAllUnchecked(copy, l)) {
 						if (currentTurn == 1) {
@@ -144,7 +145,7 @@ public class PhwarAISinglePath extends PhwarAI {
 		}
 		for (Particle part : board.getParticles().stream().filter(p -> p.getPlayer() == board.getCurrentPlayer())
 				.collect(Collectors.toSet())) {
-			Set<MoveCapture> moves = getAllPossibleMoves(board, part.getPosX(), part.getPosY());
+			Set<MoveCapture> moves = MoveCapture.getAllPossibleMoves(board, part.getPosX(), part.getPosY());
 			// test all possible moves per particle
 			for (MoveCapture m : moves) {
 				PhwarBoard copy = new PhwarBoard(board);
